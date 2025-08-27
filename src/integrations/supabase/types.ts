@@ -225,6 +225,7 @@ export type Database = {
           metadata: Json | null
           product_group: Database["public"]["Enums"]["product_category"] | null
           profile_pic_url: string | null
+          source: string | null
           status: Database["public"]["Enums"]["conversation_status"] | null
           updated_at: string | null
           whatsapp_name: string | null
@@ -247,6 +248,7 @@ export type Database = {
           metadata?: Json | null
           product_group?: Database["public"]["Enums"]["product_category"] | null
           profile_pic_url?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["conversation_status"] | null
           updated_at?: string | null
           whatsapp_name?: string | null
@@ -269,6 +271,7 @@ export type Database = {
           metadata?: Json | null
           product_group?: Database["public"]["Enums"]["product_category"] | null
           profile_pic_url?: string | null
+          source?: string | null
           status?: Database["public"]["Enums"]["conversation_status"] | null
           updated_at?: string | null
           whatsapp_name?: string | null

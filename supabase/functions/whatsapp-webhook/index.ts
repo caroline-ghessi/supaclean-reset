@@ -115,6 +115,7 @@ async function handleIncomingMessage(message: any, contact: any) {
           whatsapp_name: contact?.profile?.name || contact?.wa_id || from,
           profile_pic_url: contact?.profile?.picture || null,
           status: 'in_bot',
+          source: 'whatsapp', // Mark as real WhatsApp conversation
           first_message_at: new Date(parseInt(timestamp) * 1000).toISOString()
         })
         .select()
