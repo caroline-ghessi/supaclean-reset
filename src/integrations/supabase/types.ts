@@ -168,6 +168,45 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_analytics: {
+        Row: {
+          avg_response_time_seconds: number | null
+          by_category: Json | null
+          conversion_rate: number | null
+          date: string | null
+          hot_leads: number | null
+          id: string
+          messages_received: number | null
+          messages_sent: number | null
+          qualified_leads: number | null
+          total_conversations: number | null
+        }
+        Insert: {
+          avg_response_time_seconds?: number | null
+          by_category?: Json | null
+          conversion_rate?: number | null
+          date?: string | null
+          hot_leads?: number | null
+          id?: string
+          messages_received?: number | null
+          messages_sent?: number | null
+          qualified_leads?: number | null
+          total_conversations?: number | null
+        }
+        Update: {
+          avg_response_time_seconds?: number | null
+          by_category?: Json | null
+          conversion_rate?: number | null
+          date?: string | null
+          hot_leads?: number | null
+          id?: string
+          messages_received?: number | null
+          messages_sent?: number | null
+          qualified_leads?: number | null
+          total_conversations?: number | null
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           assigned_agent_id: string | null
@@ -185,8 +224,10 @@ export type Database = {
             | null
           metadata: Json | null
           product_group: Database["public"]["Enums"]["product_category"] | null
+          profile_pic_url: string | null
           status: Database["public"]["Enums"]["conversation_status"] | null
           updated_at: string | null
+          whatsapp_name: string | null
           whatsapp_number: string
         }
         Insert: {
@@ -205,8 +246,10 @@ export type Database = {
             | null
           metadata?: Json | null
           product_group?: Database["public"]["Enums"]["product_category"] | null
+          profile_pic_url?: string | null
           status?: Database["public"]["Enums"]["conversation_status"] | null
           updated_at?: string | null
+          whatsapp_name?: string | null
           whatsapp_number: string
         }
         Update: {
@@ -225,11 +268,51 @@ export type Database = {
             | null
           metadata?: Json | null
           product_group?: Database["public"]["Enums"]["product_category"] | null
+          profile_pic_url?: string | null
           status?: Database["public"]["Enums"]["conversation_status"] | null
           updated_at?: string | null
+          whatsapp_name?: string | null
           whatsapp_number?: string
         }
         Relationships: []
+      }
+      message_buffers: {
+        Row: {
+          buffer_started_at: string | null
+          conversation_id: string | null
+          id: string
+          messages: Json
+          processed: boolean | null
+          processed_at: string | null
+          should_process_at: string | null
+        }
+        Insert: {
+          buffer_started_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          messages?: Json
+          processed?: boolean | null
+          processed_at?: string | null
+          should_process_at?: string | null
+        }
+        Update: {
+          buffer_started_at?: string | null
+          conversation_id?: string | null
+          id?: string
+          messages?: Json
+          processed?: boolean | null
+          processed_at?: string | null
+          should_process_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_buffers_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -245,6 +328,8 @@ export type Database = {
           read_at: string | null
           sender_name: string | null
           sender_type: Database["public"]["Enums"]["sender_type"]
+          status: Database["public"]["Enums"]["message_status"] | null
+          whatsapp_message_id: string | null
         }
         Insert: {
           content: string
@@ -259,6 +344,8 @@ export type Database = {
           read_at?: string | null
           sender_name?: string | null
           sender_type: Database["public"]["Enums"]["sender_type"]
+          status?: Database["public"]["Enums"]["message_status"] | null
+          whatsapp_message_id?: string | null
         }
         Update: {
           content?: string
@@ -273,6 +360,8 @@ export type Database = {
           read_at?: string | null
           sender_name?: string | null
           sender_type?: Database["public"]["Enums"]["sender_type"]
+          status?: Database["public"]["Enums"]["message_status"] | null
+          whatsapp_message_id?: string | null
         }
         Relationships: [
           {
@@ -439,6 +528,33 @@ export type Database = {
         }
         Relationships: []
       }
+      webhook_logs: {
+        Row: {
+          created_at: string | null
+          error: string | null
+          id: string
+          payload: Json
+          processed: boolean | null
+          webhook_type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          payload: Json
+          processed?: boolean | null
+          webhook_type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error?: string | null
+          id?: string
+          payload?: Json
+          processed?: boolean | null
+          webhook_type?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -456,6 +572,7 @@ export type Database = {
         | "transferred"
         | "closed"
       lead_temperature: "cold" | "warm" | "hot"
+      message_status: "sending" | "sent" | "delivered" | "read" | "failed"
       product_category:
         | "telha_shingle"
         | "energia_solar"
@@ -606,6 +723,7 @@ export const Constants = {
         "closed",
       ],
       lead_temperature: ["cold", "warm", "hot"],
+      message_status: ["sending", "sent", "delivered", "read", "failed"],
       product_category: [
         "telha_shingle",
         "energia_solar",
