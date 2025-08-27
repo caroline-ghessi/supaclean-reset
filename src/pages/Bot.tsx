@@ -9,6 +9,9 @@ import { OverviewSection } from '@/components/bot/OverviewSection';
 import { AgentsSection } from '@/components/bot/AgentsSection';
 import { LLMSection } from '@/components/bot/LLMSection';
 import { TestSection } from '@/components/bot/TestSection';
+import { MasterAgentSection } from '@/components/bot/MasterAgentSection';
+import { ClassificationLogsSection } from '@/components/bot/ClassificationLogsSection';
+import { ClassificationStats } from '@/components/bot/ClassificationStats';
 
 type ActiveTab = 'overview' | 'agents' | 'llm' | 'test';
 
@@ -104,12 +107,21 @@ export default function BotPage() {
 
       {/* Conteúdo Principal */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {activeTab === 'overview' && <OverviewSection />}
+        {activeTab === 'overview' && (
+          <div>
+            <OverviewSection />
+            <ClassificationStats />
+            <ClassificationLogsSection />
+          </div>
+        )}
         {activeTab === 'agents' && (
-          <AgentsSection 
-            selectedAgent={selectedAgent} 
-            setSelectedAgent={setSelectedAgent} 
-          />
+          <div>
+            <MasterAgentSection />
+            <AgentsSection 
+              selectedAgent={selectedAgent} 
+              setSelectedAgent={setSelectedAgent} 
+            />
+          </div>
         )}
         {activeTab === 'llm' && <LLMSection />}
         {activeTab === 'test' && <TestSection />}

@@ -168,6 +168,114 @@ export type Database = {
         }
         Relationships: []
       }
+      classification_keywords: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          keyword: string
+          updated_at: string | null
+          weight: number | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          keyword: string
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          keyword?: string
+          updated_at?: string | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      classification_logs: {
+        Row: {
+          classified_category: string | null
+          confidence_score: number | null
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          message_text: string
+          metadata: Json | null
+          processing_time_ms: number | null
+          status: string | null
+        }
+        Insert: {
+          classified_category?: string | null
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          message_text: string
+          metadata?: Json | null
+          processing_time_ms?: number | null
+          status?: string | null
+        }
+        Update: {
+          classified_category?: string | null
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          message_text?: string
+          metadata?: Json | null
+          processing_time_ms?: number | null
+          status?: string | null
+        }
+        Relationships: []
+      }
+      classification_rules: {
+        Row: {
+          action_type: string
+          action_value: string
+          condition_field: string
+          condition_operator: string
+          condition_value: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          priority: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          action_type: string
+          action_value: string
+          condition_field: string
+          condition_operator: string
+          condition_value: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          action_type?: string
+          action_value?: string
+          condition_field?: string
+          condition_operator?: string
+          condition_value?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          priority?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       conversation_analytics: {
         Row: {
           avg_response_time_seconds: number | null
