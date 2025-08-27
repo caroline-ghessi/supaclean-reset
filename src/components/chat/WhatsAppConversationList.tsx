@@ -26,7 +26,7 @@ export function WhatsAppConversationList({ onSelect, selectedId }: WhatsAppConve
     ...(searchTerm && { search: searchTerm })
   };
 
-  const { data: conversations, isLoading } = useConversations(combinedFilters);
+  const { data: conversations, isLoading } = useConversations();
   useRealtimeConversations();
 
   const handleFilterChange = (key: keyof ConversationFilters, value: string | string[]) => {

@@ -15,7 +15,7 @@ interface ConversationListProps {
 
 export function ConversationList({ onSelect, selectedId }: ConversationListProps) {
   const [filters, setFilters] = useState<ConversationFilters>({});
-  const { data: conversations, isLoading } = useConversations(filters);
+  const { data: conversations, isLoading } = useConversations();
   
   // Enable realtime updates
   useRealtimeConversations();
