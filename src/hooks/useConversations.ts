@@ -1,18 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { logSystem } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-
-// Create a simple client instance to avoid type recursion
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!;
-const simpleClient = createClient(supabaseUrl, supabaseKey);
 
 export function useConversations() {
   return useQuery({
     queryKey: ['conversations'],
     queryFn: async () => {
-      const { data, error } = await simpleClient
+      const { data, error } = await supabase
         .from('conversations')
         .select('*')
         .eq('source', 'whatsapp')
@@ -43,7 +38,7 @@ export function useConversation(id: string) {
   return useQuery({
     queryKey: ['conversation', id],
     queryFn: async () => {
-      const { data, error } = await simpleClient
+      const { data, error } = await supabase
         .from('conversations')
         .select('*')
         .eq('id', id)
@@ -75,7 +70,7 @@ export function useCreateConversation() {
 
   return useMutation({
     mutationFn: async (conversation: any) => {
-      const { data, error } = await simpleClient
+      const { data, error } = await supabase
         .from('conversations')
         .insert([conversation])
         .select()
@@ -111,7 +106,7 @@ export function useUpdateConversation() {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: any }) => {
-      const { data, error } = await simpleClient
+      const { data, error } = await supabase
         .from('conversations')
         .update(updates)
         .eq('id', id)
@@ -149,7 +144,7 @@ export function useDeleteConversation() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await simpleClient
+      const { error } = await supabase
         .from('conversations')
         .delete()
         .eq('id', id);
