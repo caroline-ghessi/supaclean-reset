@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { ConversationList } from '@/components/chat/ConversationList';
-import { ChatArea } from '@/components/chat/ChatArea';
-import { EmptyState } from '@/components/chat/EmptyState';
+import { WhatsAppConversationList } from '@/components/chat/WhatsAppConversationList';
+import { WhatsAppChatArea } from '@/components/chat/WhatsAppChatArea';
+import { WhatsAppEmptyState } from '@/components/chat/WhatsAppEmptyState';
 import { useRealtimeConversations } from '@/hooks/useRealtimeSubscription';
 
 export function ConversationsPage() {
@@ -11,16 +11,16 @@ export function ConversationsPage() {
   useRealtimeConversations();
 
   return (
-    <div className="flex h-full bg-background">
-      <ConversationList 
+    <div className="flex h-screen bg-background overflow-hidden">
+      <WhatsAppConversationList 
         onSelect={setSelectedConversationId}
         selectedId={selectedConversationId}
       />
       
       {selectedConversationId ? (
-        <ChatArea conversationId={selectedConversationId} />
+        <WhatsAppChatArea conversationId={selectedConversationId} />
       ) : (
-        <EmptyState />
+        <WhatsAppEmptyState />
       )}
     </div>
   );

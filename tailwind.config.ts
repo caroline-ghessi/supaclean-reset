@@ -61,6 +61,20 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				chat: {
+					background: 'hsl(var(--chat-background))',
+					'bubble-sent': 'hsl(var(--chat-bubble-sent))',
+					'bubble-received': 'hsl(var(--chat-bubble-received))',
+					header: 'hsl(var(--chat-header))',
+					'list-background': 'hsl(var(--chat-list-background))',
+					'list-hover': 'hsl(var(--chat-list-hover))',
+					'list-active': 'hsl(var(--chat-list-active))'
+				},
+				lead: {
+					hot: 'hsl(var(--lead-hot))',
+					warm: 'hsl(var(--lead-warm))',
+					cold: 'hsl(var(--lead-cold))'
 				}
 			},
 			borderRadius: {

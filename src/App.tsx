@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import { ConversationsPage } from "@/pages/Conversations";
 
 const queryClient = new QueryClient();
 
@@ -18,7 +19,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
-            <Route path="/conversas" element={<div className="p-6">Conversas - Em desenvolvimento</div>} />
+            <Route path="/conversas" element={<ConversationsPage />} />
             <Route path="/leads-quentes" element={<div className="p-6">Leads Quentes - Em desenvolvimento</div>} />
             <Route path="/bot" element={<div className="p-6">Bot Inteligente - Em desenvolvimento</div>} />
             <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />

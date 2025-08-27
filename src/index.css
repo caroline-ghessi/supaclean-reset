@@ -17,8 +17,8 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 24 95% 53%; /* Drystore Orange */
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -34,24 +34,31 @@ All colors MUST be HSL.
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 24 95% 53%;
 
     --radius: 0.5rem;
 
+    /* WhatsApp-style colors */
+    --chat-background: 41 15% 89%; /* #e5ddd5 */
+    --chat-bubble-sent: 80 60% 85%; /* #dcf8c6 */
+    --chat-bubble-received: 0 0% 100%;
+    --chat-header: 210 11% 96%;
+    --chat-list-background: 0 0% 100%;
+    --chat-list-hover: 210 40% 96.1%;
+    --chat-list-active: 210 40% 92%;
+
+    /* Lead temperature colors */
+    --lead-hot: 0 84% 60%;
+    --lead-warm: 24 95% 53%;
+    --lead-cold: 217 91% 60%;
+
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
