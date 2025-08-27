@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import { ConversationsPage } from "@/pages/Conversations";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import BotPage from "@/pages/Bot";
 
 // Create QueryClient with error handling
 const queryClient = new QueryClient({
@@ -44,7 +45,7 @@ const App: React.FC = () => {
               <Route path="/" element={<Layout />}>
                 <Route index element={<Dashboard />} />
                 <Route path="/leads-quentes" element={<div className="p-6">Leads Quentes - Em desenvolvimento</div>} />
-                <Route path="/bot" element={<div className="p-6">Bot Inteligente - Em desenvolvimento</div>} />
+                <Route path="/bot" element={<BotPage />} />
                 <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />
                 <Route path="/atendentes" element={<div className="p-6">Atendentes - Em desenvolvimento</div>} />
                 <Route path="/templates" element={<div className="p-6">Templates - Em desenvolvimento</div>} />
