@@ -1,10 +1,9 @@
-import { BaseAgent, AgentResponse } from './base-agent';
-import { Conversation, ProjectContext } from '@/types/conversation.types';
+import { BaseAgent, AgentResponse, ConversationWithContext } from './base-agent';
 
 export class AcabamentosAgent extends BaseAgent {
   async generateResponse(
     message: string,
-    conversationData: Conversation & { project_contexts?: Partial<ProjectContext> }
+    conversationData: ConversationWithContext
   ): Promise<AgentResponse> {
     const context = conversationData.project_contexts || {};
     const contextInfo = this.extractContextualInfo(message);

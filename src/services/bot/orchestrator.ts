@@ -111,16 +111,14 @@ export class BotOrchestrator {
         {
           ...conversation,
           project_contexts: extractedInfo,
-          product_group: classification.category,
-          lead_score: leadScore,
-          lead_temperature: leadTemperature
+          messages: conversation.messages
         }
       );
 
       // 8. Check if should transfer to human
       const shouldTransfer = this.shouldTransferToHuman(
         leadScore,
-        conversation.messages.length,
+        conversation.messages?.length || 0,
         extractedInfo
       );
 

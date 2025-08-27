@@ -7,6 +7,27 @@ export interface AgentResponse {
   metadata?: Record<string, any>;
 }
 
+export interface ConversationWithContext {
+  id: string;
+  whatsapp_number: string;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_city?: string | null;
+  customer_state?: string | null;
+  product_group?: string | null;
+  status?: string | null;
+  lead_temperature?: string | null;
+  lead_score?: number | null;
+  assigned_agent_id?: string | null;
+  first_message_at?: string | null;
+  last_message_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  metadata?: any;
+  project_contexts?: Partial<ProjectContext>;
+  messages?: Array<{ content: string; sender_type: string; created_at: string }>;
+}
+
 export abstract class BaseAgent {
   protected companyInfo = {
     name: 'Drystore',
@@ -25,10 +46,7 @@ export abstract class BaseAgent {
 
   abstract generateResponse(
     message: string,
-    conversationData: Conversation & { 
-      project_contexts?: Partial<ProjectContext>;
-      messages?: Array<{ content: string; sender_type: string; created_at: string }>;
-    }
+    conversationData: ConversationWithContext
   ): Promise<AgentResponse>;
 
   protected getGreeting(timeOfDay?: string): string {
