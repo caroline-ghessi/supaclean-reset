@@ -1,186 +1,118 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Input } from '@/components/ui/input';
 import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { 
-  Bot, 
-  MessageSquare, 
-  Settings, 
-  Play, 
-  Search,
-  Sun,
-  Home,
-  Building,
-  Wrench,
-  Layers,
-  PaintBucket,
-  Grid,
-  Users
+  Bot, Settings, TestTube, Save, Plus, Edit3, Trash2, 
+  ChevronRight, Code, MessageSquare, Zap, Brain, 
+  FileText, Copy, History, AlertCircle, CheckCircle,
+  Sparkles, Rocket, Database, ArrowRight
 } from 'lucide-react';
-import { AgentList } from '@/components/bot/AgentList';
-import { PromptEditor } from '@/components/bot/PromptEditor';
-import { PromptTester } from '@/components/bot/PromptTester';
-import { LLMSelector } from '@/components/bot/LLMSelector';
-import { useAgentPrompts } from '@/hooks/useAgentPrompts';
-import { ProductCategory } from '@/types/conversation.types';
+import { OverviewSection } from '@/components/bot/OverviewSection';
+import { AgentsSection } from '@/components/bot/AgentsSection';
+import { LLMSection } from '@/components/bot/LLMSection';
+import { TestSection } from '@/components/bot/TestSection';
 
-const AGENT_ICONS: Record<ProductCategory, any> = {
-  energia_solar: Sun,
-  telha_shingle: Home,
-  steel_frame: Building,
-  drywall_divisorias: Layers,
-  ferramentas: Wrench,
-  pisos: Grid,
-  acabamentos: PaintBucket,
-  forros: Layers,
-  saudacao: Users,
-  institucional: MessageSquare,
-  indefinido: Bot
-};
+type ActiveTab = 'overview' | 'agents' | 'llm' | 'test';
 
-const AGENT_NAMES: Record<ProductCategory, string> = {
-  energia_solar: 'Energia Solar',
-  telha_shingle: 'Telhas Shingle',
-  steel_frame: 'Steel Frame',
-  drywall_divisorias: 'Drywall & Divisórias',
-  ferramentas: 'Ferramentas',
-  pisos: 'Pisos',
-  acabamentos: 'Acabamentos',
-  forros: 'Forros',
-  saudacao: 'Saudação',
-  institucional: 'Institucional',
-  indefinido: 'Geral'
-};
+interface TabButtonProps {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}
+
+function TabButton({ active, onClick, icon, label }: TabButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        flex items-center gap-2 px-4 py-2 rounded-md transition-all text-sm font-medium
+        ${active 
+          ? 'bg-card text-primary shadow-sm' 
+          : 'text-muted-foreground hover:text-foreground'
+        }
+      `}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
 
 export default function BotPage() {
-  const [selectedAgent, setSelectedAgent] = useState<ProductCategory>('energia_solar');
-  const [selectedLLM, setSelectedLLM] = useState<'grok' | 'claude' | 'chatgpt'>('grok');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'editor' | 'tester'>('editor');
-
-  const { data: agentPrompts, isLoading } = useAgentPrompts();
-
-  const filteredAgents = Object.keys(AGENT_NAMES).filter(category =>
-    AGENT_NAMES[category as ProductCategory].toLowerCase().includes(searchTerm.toLowerCase())
-  ) as ProductCategory[];
+  const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Bot className="h-8 w-8 text-primary" />
-              <div>
-                <h1 className="text-2xl font-bold">Bot Inteligente</h1>
-                <p className="text-muted-foreground">
-                  Gerencie agentes especializados e configure LLMs
-                </p>
+    <div className="min-h-screen bg-gradient-to-br from-muted/30 to-muted/50">
+      {/* Header Principal com Navegação */}
+      <div className="bg-card border-b sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Bot className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-foreground">Bot Inteligente</h1>
+                  <p className="text-xs text-muted-foreground">Sistema de IA para atendimento</p>
+                </div>
               </div>
             </div>
-            
-            <div className="flex items-center gap-4">
-              <Badge variant="secondary" className="px-3 py-1">
-                {Object.keys(AGENT_NAMES).length} Agentes
-              </Badge>
-              <Badge variant="outline" className="px-3 py-1">
-                {selectedLLM.toUpperCase()} Ativo
-              </Badge>
+
+            {/* Tabs de Navegação */}
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+              <TabButton
+                active={activeTab === 'overview'}
+                onClick={() => setActiveTab('overview')}
+                icon={<Sparkles className="w-4 h-4" />}
+                label="Visão Geral"
+              />
+              <TabButton
+                active={activeTab === 'agents'}
+                onClick={() => setActiveTab('agents')}
+                icon={<Brain className="w-4 h-4" />}
+                label="Agentes"
+              />
+              <TabButton
+                active={activeTab === 'llm'}
+                onClick={() => setActiveTab('llm')}
+                icon={<Zap className="w-4 h-4" />}
+                label="Modelos IA"
+              />
+              <TabButton
+                active={activeTab === 'test'}
+                onClick={() => setActiveTab('test')}
+                icon={<TestTube className="w-4 h-4" />}
+                label="Testar"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3">
+              <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <History className="w-4 h-4 inline mr-2" />
+                Histórico
+              </button>
+              <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2">
+                <Save className="w-4 h-4" />
+                Salvar Alterações
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* LLM Selector */}
-      <div className="border-b bg-card/50">
-        <div className="p-4">
-          <LLMSelector
-            selectedLLM={selectedLLM}
-            onSelectLLM={setSelectedLLM}
+      {/* Conteúdo Principal */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {activeTab === 'overview' && <OverviewSection />}
+        {activeTab === 'agents' && (
+          <AgentsSection 
+            selectedAgent={selectedAgent} 
+            setSelectedAgent={setSelectedAgent} 
           />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar - Agents List */}
-        <div className="w-80 border-r bg-card/30 flex flex-col">
-          <div className="p-4 border-b">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar agentes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4">
-            <AgentList
-              agents={filteredAgents}
-              selectedAgent={selectedAgent}
-              onSelectAgent={setSelectedAgent}
-              agentIcons={AGENT_ICONS}
-              agentNames={AGENT_NAMES}
-              agentPrompts={agentPrompts}
-              isLoading={isLoading}
-            />
-          </div>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col">
-          {/* Tabs */}
-          <div className="border-b bg-card/50">
-            <div className="flex">
-              <Button
-                variant={activeTab === 'editor' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('editor')}
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Editor de Prompts
-              </Button>
-              <Button
-                variant={activeTab === 'tester' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('tester')}
-                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Testador
-              </Button>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-hidden">
-            {activeTab === 'editor' ? (
-              <PromptEditor
-                selectedAgent={selectedAgent}
-                selectedLLM={selectedLLM}
-                agentName={AGENT_NAMES[selectedAgent]}
-              />
-            ) : (
-              <PromptTester
-                selectedAgent={selectedAgent}
-                selectedLLM={selectedLLM}
-                agentName={AGENT_NAMES[selectedAgent]}
-              />
-            )}
-          </div>
-        </div>
+        )}
+        {activeTab === 'llm' && <LLMSection />}
+        {activeTab === 'test' && <TestSection />}
       </div>
     </div>
   );
