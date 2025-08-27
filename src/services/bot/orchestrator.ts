@@ -1,6 +1,7 @@
 import { IntentClassifier } from './classifier';
 import { InformationExtractor } from './extractor';
 import { SpecializedAgentFactory } from './agents/factory';
+import { dynamicAgentService } from './dynamic-agent.service';
 import { supabase, logSystem } from '@/lib/supabase';
 import { ProjectContext } from '@/types/conversation.types';
 
@@ -104,16 +105,33 @@ export class BotOrchestrator {
         })
         .eq('id', conversationId);
 
-      // 7. Get specialized agent response
-      const agent = this.agentFactory.getAgent(classification.category);
-      const agentResponse = await agent.generateResponse(
-        message,
-        {
-          ...conversation,
-          project_contexts: extractedInfo,
-          messages: conversation.messages
-        }
-      );
+      // 7. Get specialized agent response (try dynamic first, fallback to hardcoded)
+      let agentResponse;
+      try {
+        agentResponse = await dynamicAgentService.getAgentResponse(
+          classification.category,
+          message,
+          {
+            ...conversation,
+            project_contexts: extractedInfo,
+            product_group: classification.category,
+            lead_score: leadScore,
+            lead_temperature: leadTemperature,
+            messages: conversation.messages
+          }
+        );
+      } catch (error) {
+        // Fallback to hardcoded agents
+        const agent = this.agentFactory.getAgent(classification.category);
+        agentResponse = await agent.generateResponse(
+          message,
+          {
+            ...conversation,
+            project_contexts: extractedInfo,
+            messages: conversation.messages
+          }
+        );
+      }
 
       // 8. Check if should transfer to human
       const shouldTransfer = this.shouldTransferToHuman(

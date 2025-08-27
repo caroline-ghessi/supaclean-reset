@@ -14,6 +14,124 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_prompt_history: {
+        Row: {
+          agent_prompt_id: string | null
+          change_description: string | null
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          prompt_data: Json
+          version: number
+        }
+        Insert: {
+          agent_prompt_id?: string | null
+          change_description?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          prompt_data: Json
+          version: number
+        }
+        Update: {
+          agent_prompt_id?: string | null
+          change_description?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          prompt_data?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_prompt_history_agent_prompt_id_fkey"
+            columns: ["agent_prompt_id"]
+            isOneToOne: false
+            referencedRelation: "agent_prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_prompt_steps: {
+        Row: {
+          agent_prompt_id: string | null
+          condition_field: string | null
+          id: string
+          metadata: Json | null
+          next_step: string | null
+          prompt_template: string
+          quick_replies: Json | null
+          step_key: string
+          step_order: number
+        }
+        Insert: {
+          agent_prompt_id?: string | null
+          condition_field?: string | null
+          id?: string
+          metadata?: Json | null
+          next_step?: string | null
+          prompt_template: string
+          quick_replies?: Json | null
+          step_key: string
+          step_order: number
+        }
+        Update: {
+          agent_prompt_id?: string | null
+          condition_field?: string | null
+          id?: string
+          metadata?: Json | null
+          next_step?: string | null
+          prompt_template?: string
+          quick_replies?: Json | null
+          step_key?: string
+          step_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_prompt_steps_agent_prompt_id_fkey"
+            columns: ["agent_prompt_id"]
+            isOneToOne: false
+            referencedRelation: "agent_prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_prompts: {
+        Row: {
+          category: Database["public"]["Enums"]["product_category"]
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+          version: number | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["product_category"]
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+          version?: number | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["product_category"]
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+          version?: number | null
+        }
+        Relationships: []
+      }
       bot_templates: {
         Row: {
           category: Database["public"]["Enums"]["product_category"]
@@ -245,6 +363,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      prompt_variables: {
+        Row: {
+          category: string | null
+          description: string | null
+          example_value: string | null
+          id: string
+          variable_name: string
+        }
+        Insert: {
+          category?: string | null
+          description?: string | null
+          example_value?: string | null
+          id?: string
+          variable_name: string
+        }
+        Update: {
+          category?: string | null
+          description?: string | null
+          example_value?: string | null
+          id?: string
+          variable_name?: string
+        }
+        Relationships: []
       }
       system_configs: {
         Row: {
