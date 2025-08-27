@@ -17,8 +17,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Full-screen routes */}
-          <Route path="/conversas" element={<ConversationsPage />} />
+          {/* Full-screen routes with providers */}
+          <Route 
+            path="/conversas" 
+            element={
+              <div className="h-screen">
+                <ConversationsPage />
+              </div>
+            } 
+          />
           
           {/* Layout-wrapped routes */}
           <Route path="/" element={<Layout />}>
