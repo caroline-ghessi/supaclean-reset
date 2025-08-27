@@ -2,6 +2,7 @@
 export interface Conversation {
   id: string;
   whatsapp_number: string;
+  whatsapp_name?: string;
   customer_name?: string;
   customer_email?: string;
   customer_city?: string;

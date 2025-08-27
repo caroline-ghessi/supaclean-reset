@@ -113,6 +113,7 @@ async function handleIncomingMessage(message: any, contact: any) {
         .insert({
           whatsapp_number: from,
           whatsapp_name: contact?.profile?.name || contact?.wa_id || from,
+          customer_name: contact?.profile?.name || contact?.wa_id || from, // Set customer_name same as whatsapp_name
           profile_pic_url: contact?.profile?.picture || null,
           status: 'in_bot',
           source: 'whatsapp', // Mark as real WhatsApp conversation

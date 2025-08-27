@@ -12,6 +12,10 @@ interface WhatsAppConversationItemProps {
 }
 
 export function WhatsAppConversationItem({ conversation, isSelected, onClick }: WhatsAppConversationItemProps) {
+  const getDisplayName = () => {
+    return conversation.customer_name || conversation.whatsapp_name || 'Usuário';
+  };
+
   const formatMessageTime = (date: string) => {
     const messageDate = new Date(date);
     if (isToday(messageDate)) {
@@ -65,11 +69,11 @@ export function WhatsAppConversationItem({ conversation, isSelected, onClick }: 
     >
       <Avatar className="w-12 h-12 mr-3">
         <AvatarImage 
-          src={`https://ui-avatars.com/api/?name=${conversation.customer_name}&background=F97316&color=fff`}
-          alt={conversation.customer_name}
+          src={`https://ui-avatars.com/api/?name=${getDisplayName()}&background=F97316&color=fff`}
+          alt={getDisplayName()}
         />
         <AvatarFallback className="bg-primary text-primary-foreground">
-          {conversation.customer_name.charAt(0).toUpperCase()}
+          {getDisplayName().charAt(0).toUpperCase()}
         </AvatarFallback>
       </Avatar>
       
@@ -77,7 +81,7 @@ export function WhatsAppConversationItem({ conversation, isSelected, onClick }: 
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
             <h4 className="font-semibold text-foreground truncate">
-              {conversation.customer_name}
+              {getDisplayName()}
             </h4>
             {conversation.product_group && (
               <span className="text-sm" title={conversation.product_group}>

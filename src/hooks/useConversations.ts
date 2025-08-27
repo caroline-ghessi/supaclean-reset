@@ -11,8 +11,8 @@ export function useConversations() {
         .from('conversations')
         .select('*')
         .eq('source', 'whatsapp')
-        .order('last_message_at', { ascending: false })
-        .limit(50);
+      .order('last_message_at', { ascending: false })
+      .limit(50);
 
       if (error) {
         await logSystem('error', 'useConversations', 'Failed to fetch conversations', error);
@@ -21,6 +21,8 @@ export function useConversations() {
 
       return (data || []).map((conv: any) => ({
         ...conv,
+        // Use whatsapp_name as fallback for customer_name
+        customer_name: conv.customer_name || conv.whatsapp_name || 'Usuário',
         lastMessage: undefined,
         unreadCount: 0,
         created_at: new Date(conv.created_at || ''),
@@ -53,6 +55,8 @@ export function useConversation(id: string) {
 
       return {
         ...data,
+        // Use whatsapp_name as fallback for customer_name
+        customer_name: data.customer_name || data.whatsapp_name || 'Usuário',
         created_at: new Date(data.created_at || ''),
         updated_at: new Date(data.updated_at || ''),
         first_message_at: new Date(data.first_message_at || ''),

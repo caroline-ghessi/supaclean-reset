@@ -24,6 +24,10 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const getDisplayName = (conversation: any) => {
+    return conversation?.customer_name || conversation?.whatsapp_name || 'Usuário';
+  };
+
   const { data: conversation, isLoading: conversationLoading } = useConversation(conversationId);
   const { data: messages, isLoading: messagesLoading } = useMessages(conversationId);
   const createMessage = useCreateMessage();
@@ -128,16 +132,16 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
         <div className="flex items-center gap-3">
           <Avatar className="w-10 h-10">
             <AvatarImage 
-              src={`https://ui-avatars.com/api/?name=${conversation.customer_name}&background=F97316&color=fff`}
-              alt={conversation.customer_name}
+              src={`https://ui-avatars.com/api/?name=${getDisplayName(conversation)}&background=F97316&color=fff`}
+              alt={getDisplayName(conversation)}
             />
             <AvatarFallback className="bg-primary text-primary-foreground">
-              {conversation.customer_name.charAt(0).toUpperCase()}
+              {getDisplayName(conversation).charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           
           <div className="flex-1">
-            <h3 className="font-semibold text-foreground">{conversation.customer_name}</h3>
+            <h3 className="font-semibold text-foreground">{getDisplayName(conversation)}</h3>
             <p className="text-xs text-muted-foreground">
               {conversation.whatsapp_number ? `+${conversation.whatsapp_number}` : 'WhatsApp'}
             </p>
