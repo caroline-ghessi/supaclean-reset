@@ -17,9 +17,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Full-screen routes */}
+          <Route path="/conversas" element={<ConversationsPage />} />
+          
+          {/* Layout-wrapped routes */}
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
-            <Route path="/conversas" element={<ConversationsPage />} />
             <Route path="/leads-quentes" element={<div className="p-6">Leads Quentes - Em desenvolvimento</div>} />
             <Route path="/bot" element={<div className="p-6">Bot Inteligente - Em desenvolvimento</div>} />
             <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />
@@ -28,6 +31,7 @@ const App = () => (
             <Route path="/configuracoes" element={<div className="p-6">Configurações - Em desenvolvimento</div>} />
             <Route path="/logs" element={<div className="p-6">Logs - Em desenvolvimento</div>} />
           </Route>
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
