@@ -1,16 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { 
   Upload, FileText, Trash2, CheckCircle, Clock, AlertCircle,
-  File, FileSpreadsheet, FileImage, Download
+  File, FileSpreadsheet, FileImage, Download, Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useKnowledgeFiles, useUploadKnowledgeFile, useDeleteKnowledgeFile } from '@/hooks/useKnowledgeFiles';
 import { ProductCategory } from '@/types/conversation.types';
 import { formatFileSize } from '@/lib/utils';
+import { SemanticSearchTest } from './SemanticSearchTest';
 
 interface KnowledgeBaseManagerProps {
   agentCategory: ProductCategory;
@@ -103,110 +105,127 @@ export function KnowledgeBaseManager({ agentCategory }: KnowledgeBaseManagerProp
   };
 
   return (
-    <div className="space-y-6">
-      {/* Upload Area */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Base de Conhecimento - {agentCategory.replace('_', ' ').toUpperCase()}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              isDragging 
-                ? 'border-primary bg-primary/5' 
-                : 'border-gray-300 hover:border-gray-400'
-            }`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-          >
-            <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">
-              Arraste arquivos aqui ou clique para selecionar
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Suportamos PDF, Word (.docx), Excel (.xlsx, .xls) e CSV
-            </p>
-            <p className="text-xs text-gray-400 mb-4">
-              Tamanho máximo: 50MB por arquivo
-            </p>
-            
-            <Button 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploadMutation.isPending}
-            >
-              {uploadMutation.isPending ? 'Enviando...' : 'Selecionar Arquivos'}
-            </Button>
-            
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept={Object.values(ACCEPTED_FILE_TYPES).join(',')}
-              onChange={(e) => handleFileSelect(e.target.files)}
-              className="hidden"
-            />
-          </div>
-        </CardContent>
-      </Card>
+    <Tabs defaultValue="files" className="w-full">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="files" className="flex items-center gap-2">
+          <FileText className="h-4 w-4" />
+          Arquivos
+        </TabsTrigger>
+        <TabsTrigger value="search" className="flex items-center gap-2">
+          <Search className="h-4 w-4" />
+          Busca Semântica
+        </TabsTrigger>
+      </TabsList>
 
-      {/* Files List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Arquivos na Base de Conhecimento</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
-              ))}
+      <TabsContent value="files" className="mt-6 space-y-6">
+        {/* Upload Area */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Base de Conhecimento - {agentCategory.replace('_', ' ').toUpperCase()}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                isDragging 
+                  ? 'border-primary bg-primary/5' 
+                  : 'border-gray-300 hover:border-gray-400'
+              }`}
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+            >
+              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">
+                Arraste arquivos aqui ou clique para selecionar
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Suportamos PDF, Word (.docx), Excel (.xlsx, .xls) e CSV
+              </p>
+              <p className="text-xs text-gray-400 mb-4">
+                Tamanho máximo: 50MB por arquivo
+              </p>
+              
+              <Button 
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadMutation.isPending}
+              >
+                {uploadMutation.isPending ? 'Enviando...' : 'Selecionar Arquivos'}
+              </Button>
+              
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={Object.values(ACCEPTED_FILE_TYPES).join(',')}
+                onChange={(e) => handleFileSelect(e.target.files)}
+                className="hidden"
+              />
             </div>
-          ) : files && files.length > 0 ? (
-            <div className="space-y-3">
-              {files.map((file) => (
-                <div key={file.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3 flex-1">
-                    {getFileIcon(file.file_type)}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{file.file_name}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span>{formatFileSize(file.file_size)}</span>
-                        <span>{formatDate(file.created_at)}</span>
-                        {file.extracted_content && (
-                          <span>{file.extracted_content.length} caracteres extraídos</span>
-                        )}
+          </CardContent>
+        </Card>
+
+        {/* Files List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Arquivos na Base de Conhecimento</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="h-16 bg-gray-100 rounded-lg animate-pulse" />
+                ))}
+              </div>
+            ) : files && files.length > 0 ? (
+              <div className="space-y-3">
+                {files.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3 flex-1">
+                      {getFileIcon(file.file_type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{file.file_name}</p>
+                        <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <span>{formatFileSize(file.file_size)}</span>
+                          <span>{formatDate(file.created_at)}</span>
+                          {file.extracted_content && (
+                            <span>{file.extracted_content.length} caracteres extraídos</span>
+                          )}
+                        </div>
                       </div>
                     </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(file.processing_status)}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteMutation.mutate(file)}
+                        disabled={deleteMutation.isPending}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {getStatusBadge(file.processing_status)}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => deleteMutation.mutate(file)}
-                      disabled={deleteMutation.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Alert>
-              <FileText className="h-4 w-4" />
-              <AlertDescription>
-                Nenhum arquivo carregado ainda. Faça upload de documentos para alimentar a base de conhecimento deste agente.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+                ))}
+              </div>
+            ) : (
+              <Alert>
+                <FileText className="h-4 w-4" />
+                <AlertDescription>
+                  Nenhum arquivo carregado ainda. Faça upload de documentos para alimentar a base de conhecimento deste agente.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      <TabsContent value="search" className="mt-6">
+        <SemanticSearchTest agentCategory={agentCategory} />
+      </TabsContent>
+    </Tabs>
   );
 }

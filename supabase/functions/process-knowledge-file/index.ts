@@ -74,6 +74,14 @@ serve(async (req) => {
 
     console.log(`✅ Successfully processed file: ${fileName}`);
 
+    // Start background task to generate embeddings
+    const generateEmbeddingsPromise = supabase.functions.invoke('generate-embeddings', {
+      body: { fileId, content: extractedContent }
+    });
+
+    // Use background task to not block the response
+    EdgeRuntime.waitUntil(generateEmbeddingsPromise);
+
     return new Response(
       JSON.stringify({ 
         success: true, 

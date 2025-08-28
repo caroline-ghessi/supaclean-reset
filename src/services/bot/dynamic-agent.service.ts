@@ -19,10 +19,19 @@ export class DynamicAgentService {
         return this.getDefaultResponse();
       }
 
-      // Process template with context - use knowledge_base as the main prompt
+      // Get relevant knowledge using RAG
+      const relevantKnowledge = await this.getRelevantKnowledge(message, category);
+      
+      // Add knowledge to context
+      const enhancedContext = {
+        ...context,
+        relevantKnowledge
+      };
+
+      // Process template with enhanced context
       const processedPrompt = this.processTemplate(
         agentPrompt.knowledge_base,
-        context
+        enhancedContext
       );
 
       return {
@@ -30,7 +39,8 @@ export class DynamicAgentService {
         quickReplies: [],
         metadata: {
           agentType: agentPrompt.agent_type,
-          llmModel: agentPrompt.llm_model
+          llmModel: agentPrompt.llm_model,
+          knowledgeUsed: relevantKnowledge ? true : false
         }
       };
     } catch (error) {
@@ -64,7 +74,7 @@ export class DynamicAgentService {
   }
 
 
-  private processTemplate(template: string, context: ConversationWithContext) {
+  private processTemplate(template: string, context: ConversationWithContext & { relevantKnowledge?: string }) {
     // Register Handlebars helpers
     Handlebars.registerHelper('if', function(conditional, options) {
       if (conditional) {
@@ -72,6 +82,10 @@ export class DynamicAgentService {
       } else {
         return options.inverse(this);
       }
+    });
+
+    Handlebars.registerHelper('hasKnowledge', function(knowledge) {
+      return knowledge && knowledge.trim().length > 0;
     });
 
     // Compile Handlebars template
@@ -87,6 +101,9 @@ export class DynamicAgentService {
       
       // Project info
       ...context.project_contexts,
+      
+      // RAG Knowledge
+      relevantKnowledge: context.relevantKnowledge || '',
       
       // System info
       product_group: this.translateProductGroup(context.product_group as ProductCategory),
@@ -207,6 +224,52 @@ Muito obrigado! 🤝`,
         contextUsed: testContext
       }
     };
+  }
+
+  private async getRelevantKnowledge(message: string, category: ProductCategory): Promise<string> {
+    try {
+      // Generate embedding for the message
+      const { data: embeddingData, error: embeddingError } = await supabase.functions.invoke('generate-embeddings', {
+        body: { 
+          content: message,
+          generateChunks: false
+        }
+      });
+
+      if (embeddingError || !embeddingData?.embedding) {
+        console.warn('Failed to generate embedding for knowledge search:', embeddingError);
+        return '';
+      }
+
+      // Search for relevant knowledge chunks
+      const { data: chunks, error: searchError } = await supabase.rpc('search_knowledge_chunks', {
+        query_embedding: embeddingData.embedding,
+        target_agent_category: category,
+        similarity_threshold: 0.7,
+        max_results: 3
+      });
+
+      if (searchError) {
+        console.warn('Knowledge search failed:', searchError);
+        return '';
+      }
+
+      if (!chunks || chunks.length === 0) {
+        return '';
+      }
+
+      // Format knowledge for inclusion in prompt
+      const formattedKnowledge = chunks
+        .map((chunk: any, index: number) => 
+          `[Fonte ${index + 1}: ${chunk.file_name}]\n${chunk.content}`
+        )
+        .join('\n\n---\n\n');
+
+      return formattedKnowledge;
+    } catch (error) {
+      console.error('Error getting relevant knowledge:', error);
+      return '';
+    }
   }
 
   // Clear cache (useful for admin when prompts are updated)
