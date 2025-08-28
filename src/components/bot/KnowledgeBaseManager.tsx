@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { 
   Upload, FileText, Trash2, CheckCircle, Clock, AlertCircle,
-  File, FileSpreadsheet, FileImage, Download, Search
+  File, FileSpreadsheet, FileImage, Download, Search, Globe
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { useKnowledgeFiles, useUploadKnowledgeFile, useDeleteKnowledgeFile } fro
 import { ProductCategory } from '@/types/conversation.types';
 import { formatFileSize } from '@/lib/utils';
 import { SemanticSearchTest } from './SemanticSearchTest';
+import { WebScrapingTab } from './WebScrapingTab';
 
 interface KnowledgeBaseManagerProps {
   agentCategory: ProductCategory;
@@ -106,10 +107,14 @@ export function KnowledgeBaseManager({ agentCategory }: KnowledgeBaseManagerProp
 
   return (
     <Tabs defaultValue="files" className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
+      <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="files" className="flex items-center gap-2">
           <FileText className="h-4 w-4" />
           Arquivos
+        </TabsTrigger>
+        <TabsTrigger value="web-scraping" className="flex items-center gap-2">
+          <Globe className="h-4 w-4" />
+          Web Scraping
         </TabsTrigger>
         <TabsTrigger value="search" className="flex items-center gap-2">
           <Search className="h-4 w-4" />
@@ -221,6 +226,10 @@ export function KnowledgeBaseManager({ agentCategory }: KnowledgeBaseManagerProp
             )}
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="web-scraping" className="mt-6">
+        <WebScrapingTab agentCategory={agentCategory} />
       </TabsContent>
 
       <TabsContent value="search" className="mt-6">
