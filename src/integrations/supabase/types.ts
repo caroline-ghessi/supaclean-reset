@@ -825,6 +825,7 @@ export type Database = {
           messages: Json
           processed: boolean | null
           processed_at: string | null
+          processing_started_at: string | null
           should_process_at: string | null
         }
         Insert: {
@@ -834,6 +835,7 @@ export type Database = {
           messages?: Json
           processed?: boolean | null
           processed_at?: string | null
+          processing_started_at?: string | null
           should_process_at?: string | null
         }
         Update: {
@@ -843,6 +845,7 @@ export type Database = {
           messages?: Json
           processed?: boolean | null
           processed_at?: string | null
+          processing_started_at?: string | null
           should_process_at?: string | null
         }
         Relationships: [
@@ -1185,6 +1188,14 @@ export type Database = {
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
         Returns: string
+      }
+      schedule_buffer_processing: {
+        Args: {
+          conversation_id_param: string
+          cron_expression: string
+          job_name: string
+        }
+        Returns: undefined
       }
       search_knowledge_chunks: {
         Args: {
