@@ -51,20 +51,7 @@ serve(async (req) => {
       throw new Error('File ID is required for chunk processing');
     }
 
-    console.log(`Generating embeddings for file: ${fileId}`);
-
-    // Generate embedding for the entire content
-    const fullEmbedding = await generateEmbedding(content);
-    
-    // Update the file with the full embedding
-    const { error: updateError } = await supabase
-      .from('agent_knowledge_files')
-      .update({ content_embedding: fullEmbedding })
-      .eq('id', fileId);
-
-    if (updateError) {
-      throw new Error(`Failed to update file embedding: ${updateError.message}`);
-    }
+    console.log(`Generating embeddings for file: ${fileId} (${content.length} characters)`);
 
     // Get file details
     const { data: fileData, error: fileError } = await supabase
@@ -81,27 +68,51 @@ serve(async (req) => {
     const chunks = createChunks(content);
     console.log(`Created ${chunks.length} chunks for file: ${fileId}`);
 
-    // Generate embeddings for each chunk
+    // Generate embeddings for each chunk with error handling
     const chunkData = [];
+    let processedChunks = 0;
+    let failedChunks = 0;
+    
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-      console.log(`Processing chunk ${i + 1}/${chunks.length}`);
+      const estimatedTokens = estimateTokens(chunk);
       
-      const chunkEmbedding = await generateEmbedding(chunk);
+      console.log(`Processing chunk ${i + 1}/${chunks.length} (${chunk.length} chars, ~${estimatedTokens} tokens)`);
       
-      chunkData.push({
-        agent_category: fileData.agent_category,
-        file_id: fileId,
-        chunk_index: i,
-        content: chunk,
-        content_embedding: chunkEmbedding,
-        token_count: estimateTokens(chunk),
-        metadata: {
-          file_name: fileData.file_name,
-          chunk_size: chunk.length
-        }
-      });
+      // Skip chunks that are too large for the model
+      if (estimatedTokens > 8000) {
+        console.warn(`Skipping chunk ${i + 1}: too large (${estimatedTokens} tokens)`);
+        failedChunks++;
+        continue;
+      }
+      
+      try {
+        const chunkEmbedding = await generateEmbeddingWithRetry(chunk, 3);
+        
+        chunkData.push({
+          agent_category: fileData.agent_category,
+          file_id: fileId,
+          chunk_index: i,
+          content: chunk,
+          content_embedding: chunkEmbedding,
+          token_count: estimatedTokens,
+          metadata: {
+            file_name: fileData.file_name,
+            chunk_size: chunk.length
+          }
+        });
+        
+        processedChunks++;
+      } catch (error) {
+        console.error(`Failed to process chunk ${i + 1}:`, error);
+        failedChunks++;
+        
+        // Continue processing other chunks instead of failing completely
+        continue;
+      }
     }
+    
+    console.log(`Chunk processing summary: ${processedChunks} successful, ${failedChunks} failed`)
 
     // Insert all chunks
     const { error: chunksError } = await supabase
@@ -112,13 +123,14 @@ serve(async (req) => {
       throw new Error(`Failed to insert chunks: ${chunksError.message}`);
     }
 
-    console.log(`Successfully processed ${chunks.length} chunks for file: ${fileId}`);
+    console.log(`Successfully processed ${processedChunks} chunks for file: ${fileId}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        chunksCreated: chunks.length,
-        message: 'Embeddings generated successfully' 
+        chunksCreated: processedChunks,
+        chunksSkipped: failedChunks,
+        message: `Embeddings generated successfully: ${processedChunks} chunks processed, ${failedChunks} skipped` 
       }), 
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -160,7 +172,27 @@ async function generateEmbedding(text: string): Promise<number[]> {
   return data.data[0].embedding;
 }
 
-function createChunks(content: string, maxChunkSize: number = 1000): string[] {
+async function generateEmbeddingWithRetry(text: string, maxRetries: number = 3): Promise<number[]> {
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await new Promise(resolve => setTimeout(resolve, attempt * 500)); // Progressive delay
+      return await generateEmbedding(text);
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`Embedding attempt ${attempt}/${maxRetries} failed:`, error);
+      
+      if (attempt === maxRetries) {
+        break;
+      }
+    }
+  }
+  
+  throw lastError!;
+}
+
+function createChunks(content: string, maxChunkSize: number = 6000): string[] {
   // Split by paragraphs first
   const paragraphs = content.split(/\n\s*\n/);
   const chunks: string[] = [];
