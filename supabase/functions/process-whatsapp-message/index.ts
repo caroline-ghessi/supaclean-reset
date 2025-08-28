@@ -102,9 +102,60 @@ serve(async (req) => {
         status: 'delivered'
       });
 
-    // Agendar processamento usando pg_cron
-    // Isso substitui o setTimeout que não é confiável em edge functions
-    await scheduleBufferProcessing(conversationId, shouldProcessAt);
+    // Agendar processamento do buffer usando setTimeout como fallback
+    // Em ambiente de produção, seria melhor usar um sistema de filas dedicado
+    console.log(`Scheduling buffer processing for conversation ${conversationId} in 60 seconds`);
+    
+    // Usar EdgeRuntime.waitUntil para agendar o processamento do buffer
+    const processBufferTask = async () => {
+      await new Promise(resolve => setTimeout(resolve, 60000)); // 60 segundos
+      
+      try {
+        console.log(`Processing buffer for conversation ${conversationId}`);
+        
+        const result = await supabase.functions.invoke('process-message-buffer', {
+          body: { conversationId }
+        });
+        
+        if (result.error) {
+          console.error('Error processing buffer:', result.error);
+          await supabase.from('system_logs').insert({
+            level: 'error',
+            source: 'process-whatsapp-message-scheduler',
+            message: 'Failed to process buffer',
+            data: { 
+              conversationId, 
+              error: result.error.message,
+              scheduled_at: shouldProcessAt.toISOString()
+            }
+          });
+        } else {
+          console.log(`Buffer processed successfully for conversation ${conversationId}:`, result.data);
+        }
+      } catch (error) {
+        console.error('Error in scheduled buffer processing:', error);
+        await supabase.from('system_logs').insert({
+          level: 'error',
+          source: 'process-whatsapp-message-scheduler',
+          message: 'Exception in scheduled buffer processing',
+          data: { 
+            conversationId, 
+            error: error.message,
+            scheduled_at: shouldProcessAt.toISOString()
+          }
+        });
+      }
+    };
+
+    // Executar o agendamento em background
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      EdgeRuntime.waitUntil(processBufferTask());
+    } else {
+      // Fallback para ambiente de desenvolvimento
+      processBufferTask().catch(error => 
+        console.error('Error in background buffer processing:', error)
+     );
+    }
 
     console.log(`Message buffered for conversation ${conversationId}, will process at ${shouldProcessAt.toISOString()}`);
 
@@ -132,47 +183,3 @@ serve(async (req) => {
     );
   }
 });
-
-async function scheduleBufferProcessing(conversationId: string, processAt: Date) {
-  try {
-    // Usar pg_cron para agendar o processamento do buffer
-    // Criar um job único para este buffer
-    const jobName = `process_buffer_${conversationId}_${Date.now()}`;
-    const cronExpression = convertDateToCron(processAt);
-    
-    const { error } = await supabase.rpc('schedule_buffer_processing', {
-      job_name: jobName,
-      cron_expression: cronExpression,
-      conversation_id_param: conversationId
-    });
-
-    if (error) {
-      console.error('Failed to schedule buffer processing:', error);
-      // Fallback: chamar diretamente após delay (não ideal mas funciona)
-      setTimeout(async () => {
-        await supabase.functions.invoke('process-message-buffer', {
-          body: { conversationId }
-        });
-      }, 60000);
-    }
-  } catch (error) {
-    console.error('Error scheduling buffer processing:', error);
-    // Fallback similar ao acima
-    setTimeout(async () => {
-      await supabase.functions.invoke('process-message-buffer', {
-        body: { conversationId }
-      });
-    }, 60000);
-  }
-}
-
-function convertDateToCron(date: Date): string {
-  // Converter data para expressão cron
-  // Formato: minuto hora dia mês dia_da_semana
-  const minute = date.getMinutes();
-  const hour = date.getHours();
-  const day = date.getDate();
-  const month = date.getMonth() + 1;
-  
-  return `${minute} ${hour} ${day} ${month} *`;
-}
