@@ -1,8 +1,7 @@
 import { supabase } from '@/lib/supabase';
-import { BotOrchestrator } from '@/services/bot/orchestrator';
+import { dynamicAgentService } from '@/services/bot/dynamic-agent.service';
 
 export class WhatsAppIntegrationService {
-  private botOrchestrator = new BotOrchestrator();
 
   /**
    * Send message to WhatsApp using the webhook edge function
@@ -38,22 +37,34 @@ export class WhatsAppIntegrationService {
     content: string
   ): Promise<void> {
     try {
-      // Get bot response
-      const botResponse = await this.botOrchestrator.processMessage(
-        conversationId,
-        content
-      );
-
-      // Get conversation details for WhatsApp number
+      // Get bot response using ONLY dynamic prompts from /bot configuration
       const { data: conversation } = await supabase
         .from('conversations')
-        .select('whatsapp_number')
+        .select(`
+          *,
+          project_contexts (*),
+          messages (
+            content,
+            sender_type,
+            created_at
+          )
+        `)
         .eq('id', conversationId)
         .single();
 
-      if (!conversation) {
-        throw new Error('Conversation not found');
-      }
+      if (!conversation) throw new Error('Conversation not found');
+
+      const agentResponse = await dynamicAgentService.getAgentResponse(
+        conversation.product_group || 'indefinido',
+        content,
+        conversation as any
+      );
+
+      const botResponse = {
+        response: agentResponse.text,
+        quickReplies: agentResponse.quickReplies,
+        shouldTransferToHuman: agentResponse.shouldTransferToHuman
+      };
 
       // Send response via WhatsApp
       if (botResponse.response) {

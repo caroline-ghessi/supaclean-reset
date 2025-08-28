@@ -1,7 +1,41 @@
 import { supabase } from '@/integrations/supabase/client';
-import { ProductCategory } from '@/types/conversation.types';
-import { ConversationWithContext, AgentResponse } from './agents/base-agent';
+import { ProductCategory, ProjectContext } from '@/types/conversation.types';
 import Handlebars from 'handlebars';
+
+export interface AgentResponse {
+  text: string;
+  quickReplies?: string[];
+  shouldTransferToHuman?: boolean;
+  metadata?: Record<string, any>;
+}
+
+export interface ConversationWithContext {
+  id: string;
+  whatsapp_number: string;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_city?: string | null;
+  customer_state?: string | null;
+  whatsapp_name?: string | null;
+  profile_pic_url?: string | null;
+  product_group?: ProductCategory | null;
+  status?: string | null;
+  lead_temperature?: string | null;
+  lead_score?: number | null;
+  source?: string | null;
+  assigned_agent_id?: string | null;
+  current_agent_id?: string | null;
+  confidence_score?: number | null;
+  classification_updated_at?: string | null;
+  buffer_until?: string | null;
+  first_message_at?: string | null;
+  last_message_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  metadata?: any;
+  project_contexts?: Partial<ProjectContext>;
+  messages?: Array<{ content: string; sender_type: string; created_at: string }>;
+}
 
 export class DynamicAgentService {
   private promptCache = new Map<string, any>();
@@ -12,10 +46,10 @@ export class DynamicAgentService {
     context: ConversationWithContext
   ): Promise<AgentResponse> {
     try {
-      // Load active prompt for category
-      const agentPrompt = await this.loadAgentPrompt(category);
+      // Load active prompt for category from /bot configuration
+      const agentConfig = await this.loadAgentPrompt(category);
       
-      if (!agentPrompt || !agentPrompt.knowledge_base) {
+      if (!agentConfig || !agentConfig.system_prompt) {
         return this.getDefaultResponse();
       }
 
@@ -30,7 +64,7 @@ export class DynamicAgentService {
 
       // Process template with enhanced context
       const processedPrompt = this.processTemplate(
-        agentPrompt.knowledge_base,
+        agentConfig.system_prompt,
         enhancedContext
       );
 
@@ -38,8 +72,7 @@ export class DynamicAgentService {
         text: processedPrompt,
         quickReplies: [],
         metadata: {
-          agentType: agentPrompt.agent_type,
-          llmModel: agentPrompt.llm_model,
+          agentType: agentConfig.agent_type,
           knowledgeUsed: relevantKnowledge ? true : false
         }
       };
@@ -56,19 +89,34 @@ export class DynamicAgentService {
       return this.promptCache.get(cacheKey);
     }
 
-    // Load from database
+    // Load from agent_configs table (configured in /bot page)
     const { data } = await supabase
-      .from('agent_prompts')
+      .from('agent_configs')
       .select('*')
-      .eq('category', category)
+      .eq('product_category', category)
       .eq('is_active', true)
       .single();
 
-    // Cache for 5 minutes
-    if (data) {
-      this.promptCache.set(cacheKey, data);
-      setTimeout(() => this.promptCache.delete(cacheKey), 5 * 60 * 1000);
+    // Fallback to general agent if no specialist found
+    if (!data) {
+      const { data: generalAgent } = await supabase
+        .from('agent_configs')
+        .select('*')
+        .eq('agent_type', 'general')
+        .eq('is_active', true)
+        .single();
+      
+      if (generalAgent) {
+        this.promptCache.set(cacheKey, generalAgent);
+        setTimeout(() => this.promptCache.delete(cacheKey), 5 * 60 * 1000);
+      }
+      
+      return generalAgent;
     }
+
+    // Cache for 5 minutes
+    this.promptCache.set(cacheKey, data);
+    setTimeout(() => this.promptCache.delete(cacheKey), 5 * 60 * 1000);
 
     return data;
   }
@@ -165,11 +213,7 @@ export class DynamicAgentService {
 
   private getDefaultResponse(): AgentResponse {
     return {
-      text: `Desculpe, estou com dificuldades para processar sua mensagem.
-
-Vou transferir você para um especialista que pode ajudar melhor.
-
-Por favor, aguarde um momento. 🙏`,
+      text: `Desculpe, não consegui processar sua mensagem. Vou conectar você com um atendente.`,
       shouldTransferToHuman: true,
       metadata: { shouldTransfer: true }
     };
@@ -177,16 +221,7 @@ Por favor, aguarde um momento. 🙏`,
 
   private getFinalResponse(context: ConversationWithContext): AgentResponse {
     return {
-      text: `Perfeito! Já tenho todas as informações necessárias.
-
-**Resumo do seu interesse:**
-- Produto: ${this.translateProductGroup(context.product_group as ProductCategory)}
-- Lead Score: ${context.lead_score}/100
-- Qualificação: ${this.translateTemperature(context.lead_temperature)}
-
-Um especialista entrará em contato em breve para finalizar seu atendimento.
-
-Muito obrigado! 🤝`,
+      text: `Vou conectar você com um atendente especializado.`,
       shouldTransferToHuman: true,
       metadata: { 
         qualified: true,
@@ -197,30 +232,29 @@ Muito obrigado! 🤝`,
 
   // Method to test prompts in admin
   async testPrompt(
-    agentPromptId: string,
+    agentConfigId: string,
     message: string,
     testContext: any
   ): Promise<any> {
-    const { data: agentPrompt } = await supabase
-      .from('agent_prompts')
+    const { data: agentConfig } = await supabase
+      .from('agent_configs')
       .select('*')
-      .eq('id', agentPromptId)
+      .eq('id', agentConfigId)
       .single();
 
-    if (!agentPrompt) {
-      throw new Error('Agent prompt not found');
+    if (!agentConfig) {
+      throw new Error('Agent config not found');
     }
 
     const processedPrompt = this.processTemplate(
-      agentPrompt.knowledge_base || '',
+      agentConfig.system_prompt || '',
       testContext
     );
 
     return {
       response: processedPrompt,
       metadata: {
-        agentType: agentPrompt.agent_type,
-        llmModel: agentPrompt.llm_model,
+        agentType: agentConfig.agent_type,
         contextUsed: testContext
       }
     };
