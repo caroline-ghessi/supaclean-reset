@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Message } from '@/types/conversation.types';
-import { Check, CheckCheck, Bot, User, UserCheck, Settings } from 'lucide-react';
+import { Check, CheckCheck, Bot, User, UserCheck, Settings, FileText } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -101,17 +101,29 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             {message.media_type?.startsWith('image/') ? (
               <img 
                 src={message.media_url} 
-                alt="Mídia" 
-                className="max-w-full h-auto rounded"
+                alt="Mídia compartilhada" 
+                className="max-w-full h-auto rounded max-h-60 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                loading="lazy"
               />
+            ) : message.media_type?.startsWith('audio/') ? (
+              <audio controls className="w-full max-w-xs">
+                <source src={message.media_url} type={message.media_type} />
+                Seu navegador não suporta áudio.
+              </audio>
+            ) : message.media_type?.startsWith('video/') ? (
+              <video controls className="max-w-full h-auto rounded max-h-60">
+                <source src={message.media_url} type={message.media_type} />
+                Seu navegador não suporta vídeo.
+              </video>
             ) : (
               <a 
                 href={message.media_url} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-blue-500 underline text-sm"
+                className="flex items-center gap-2 text-blue-500 hover:text-blue-600 text-sm p-2 bg-muted/20 rounded border"
               >
-                📎 Arquivo anexo
+                <FileText className="h-4 w-4" />
+                📎 {message.media_type || 'Arquivo anexo'}
               </a>
             )}
           </div>

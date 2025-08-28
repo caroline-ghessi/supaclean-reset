@@ -133,27 +133,50 @@ async function handleIncomingMessage(message: any, contact: any) {
     let mediaUrl = null;
     let mediaType = null;
 
-    switch (type) {
-      case 'text':
-        content = message.text.body;
-        break;
-      case 'interactive':
-        if (message.interactive.type === 'button_reply') {
-          content = message.interactive.button_reply.title;
-        } else if (message.interactive.type === 'list_reply') {
-          content = message.interactive.list_reply.title;
+    if (type === 'text') {
+      content = message.text.body;
+    } else if (type === 'interactive') {
+      if (message.interactive.type === 'button_reply') {
+        content = message.interactive.button_reply.title;
+      } else if (message.interactive.type === 'list_reply') {
+        content = message.interactive.list_reply.title;
+      }
+    } else if (['image', 'audio', 'video', 'document', 'sticker'].includes(type)) {
+      // Para mídia, baixar e armazenar o arquivo
+      const mediaInfo = message[type];
+      if (mediaInfo?.id) {
+        console.log(`Processing media: ${type}, ID: ${mediaInfo.id}`);
+        
+        try {
+          // Chamar função para baixar mídia
+          const { data: downloadData, error: downloadError } = await supabase.functions.invoke('download-whatsapp-media', {
+            body: {
+              mediaId: mediaInfo.id,
+              mediaType: mediaInfo.mime_type || type
+            }
+          });
+
+          if (downloadError) {
+            console.error('Error downloading media:', downloadError);
+            content = `[ERRO AO BAIXAR ${type.toUpperCase()}]`;
+          } else if (downloadData?.success) {
+            content = mediaInfo.caption || `[${type.toUpperCase()}]`;
+            mediaUrl = downloadData.publicUrl;
+            mediaType = downloadData.mimeType;
+            console.log(`Media downloaded successfully: ${mediaUrl}`);
+          } else {
+            console.error('Failed to download media:', downloadData);
+            content = `[ERRO AO PROCESSAR ${type.toUpperCase()}]`;
+          }
+        } catch (error) {
+          console.error('Exception downloading media:', error);
+          content = `[ERRO AO BAIXAR ${type.toUpperCase()}]`;
         }
-        break;
-      case 'image':
-      case 'document':
-      case 'audio':
-      case 'video':
-        mediaType = type;
-        mediaUrl = message[type]?.id || message[type]?.link;
-        content = message[type]?.caption || `[${type} enviado]`;
-        break;
-      default:
-        content = `[${type} não suportado]`;
+      } else {
+        content = `[${type.toUpperCase()} SEM ID]`;
+      }
+    } else {
+      content = `[TIPO DE MENSAGEM NÃO SUPORTADO: ${type}]`;
     }
 
     // Save message
