@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAgentPrompt, useUpdateAgentPrompt } from '@/hooks/useAgentPrompts';
+import { useAgentConfig, useUpdateAgentConfig } from '@/hooks/useAgentConfigs';
 import { ProductCategory } from '@/types/conversation.types';
 import { toast } from '@/hooks/use-toast';
 import { KnowledgeBaseManager } from './KnowledgeBaseManager';
@@ -33,14 +33,9 @@ const LLM_OPTIONS = [
 export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromptEditorProps) {
   const [activeTab, setActiveTab] = useState<'system' | 'knowledge' | 'settings' | 'test'>('system');
   
-  // Para agentes espiões, usar uma categoria específica para buscar no banco
-  const queryCategory = agentType === 'classifier' ? 'saudacao' : 
-                       agentType === 'extractor' ? 'saudacao' : 
-                       selectedAgent as ProductCategory;
-
-  // Buscar dados do agente
-  const { data: agentPrompt, isLoading } = useAgentPrompt(queryCategory);
-  const updateAgentPrompt = useUpdateAgentPrompt();
+  // Buscar dados do agente usando o ID
+  const { data: agentConfig, isLoading } = useAgentConfig(selectedAgent);
+  const updateAgentConfig = useUpdateAgentConfig();
 
   const [localPrompt, setLocalPrompt] = useState('');
   const [localLlmModel, setLocalLlmModel] = useState('claude-3-5-sonnet-20241022');
@@ -48,14 +43,15 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
 
   // Atualizar estados locais quando os dados carregarem
   useEffect(() => {
-    if (agentPrompt) {
-      setLocalPrompt(agentPrompt.knowledge_base || '');
-      setLocalLlmModel(agentPrompt.llm_model || 'claude-3-5-sonnet-20241022');
+    if (agentConfig) {
+      setLocalPrompt(agentConfig.system_prompt || '');
+      // Para agent_configs não temos llm_model, usar padrão
+      setLocalLlmModel('claude-3-5-sonnet-20241022');
     }
-  }, [agentPrompt]);
+  }, [agentConfig]);
 
   const handleSave = async () => {
-    if (!agentPrompt) {
+    if (!agentConfig) {
       toast({
         title: "Erro",
         description: "Nenhum agente selecionado para salvar.",
@@ -69,19 +65,22 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
     setIsSaving(true);
     try {
       const dataToSave = {
-        id: agentPrompt.id,
-        knowledge_base: localPrompt,
-        llm_model: localLlmModel,
-        category: agentPrompt.category,
-        name: agentPrompt.name,
-        description: agentPrompt.description,
-        agent_type: agentPrompt.agent_type,
-        is_active: true
+        id: agentConfig.id,
+        system_prompt: localPrompt,
+        // Manter os outros campos do agente
+        agent_name: agentConfig.agent_name,
+        agent_type: agentConfig.agent_type,
+        product_category: agentConfig.product_category,
+        is_active: agentConfig.is_active,
+        temperature: agentConfig.temperature,
+        max_tokens: agentConfig.max_tokens,
+        is_spy: agentConfig.is_spy,
+        description: agentConfig.description
       };
 
       console.log('📝 Data being saved:', dataToSave);
 
-      await updateAgentPrompt.mutateAsync(dataToSave);
+      await updateAgentConfig.mutateAsync(dataToSave);
       
       toast({
         title: "Sucesso!",
@@ -122,6 +121,7 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
   };
 
   const getAgentName = () => {
+    if (agentConfig?.agent_name) return agentConfig.agent_name;
     if (agentType === 'classifier') return 'Agente Classificador';
     if (agentType === 'extractor') return 'Agente Extrator de Dados';
     return selectedAgent.charAt(0).toUpperCase() + selectedAgent.slice(1).replace('_', ' ');
@@ -235,7 +235,7 @@ Sempre seja amigável, profissional e prestativo.`
           </TabsContent>
 
           <TabsContent value="knowledge" className="space-y-6">
-            <KnowledgeBaseManager agentCategory={selectedAgent as ProductCategory} />
+            <KnowledgeBaseManager agentCategory={agentConfig?.product_category || 'geral' as ProductCategory} />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
@@ -268,12 +268,14 @@ Sempre seja amigável, profissional e prestativo.`
               <div className="grid grid-cols-2 gap-4 mt-2">
                 <div>
                   <p className="text-sm font-medium">Categoria</p>
-                  <p className="text-sm text-muted-foreground">{selectedAgent}</p>
+                  <p className="text-sm text-muted-foreground">{agentConfig?.product_category || 'N/A'}</p>
                 </div>
                 <div>
                   <p className="text-sm font-medium">Tipo</p>
                   <p className="text-sm text-muted-foreground">
-                    {agentType === 'specialist' ? 'Especialista' : 'Espião'}
+                    {agentConfig?.agent_type === 'specialist' ? 'Especialista' : 
+                     agentConfig?.agent_type === 'classifier' ? 'Classificador' :
+                     agentConfig?.agent_type === 'extractor' ? 'Extrator' : 'Geral'}
                   </p>
                 </div>
               </div>
