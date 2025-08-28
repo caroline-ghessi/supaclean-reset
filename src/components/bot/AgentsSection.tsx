@@ -15,82 +15,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAgentPrompts } from '@/hooks/useAgentPrompts';
-import { PromptEditor } from './PromptEditor';
+import { useSpecialistAgents, useAgentsByType } from '@/hooks/useAgentConfigs';
 import { SpyAgentCard } from './SpyAgentCard';
 import { EnhancedPromptEditor } from './EnhancedPromptEditor';
 
-// Definir os agentes especialistas com seus ícones e informações
-const specialistAgents = [
-  {
-    id: 'energia_solar',
-    name: 'Energia Solar',
-    icon: Sun,
-    conversations: 45,
-    status: 'active' as const,
-    description: 'Especialista em sistemas de energia solar'
-  },
-  {
-    id: 'telha_shingle',
-    name: 'Telha Shingle',
-    icon: Home,
-    conversations: 23,
-    status: 'active' as const,
-    description: 'Especialista em telhas e coberturas'
-  },
-  {
-    id: 'steel_frame',
-    name: 'Steel Frame',
-    icon: Layers,
-    conversations: 18,
-    status: 'active' as const,
-    description: 'Especialista em estruturas metálicas'
-  },
-  {
-    id: 'drywall_divisorias',
-    name: 'Drywall',
-    icon: Hammer,
-    conversations: 31,
-    status: 'active' as const,
-    description: 'Especialista em drywall e divisórias'
-  },
-  {
-    id: 'ferramentas',
-    name: 'Ferramentas',
-    icon: Wrench,
-    conversations: 12,
-    status: 'active' as const,
-    description: 'Especialista em ferramentas e equipamentos'
-  },
-  {
-    id: 'acabamentos',
-    name: 'Acabamentos',
-    icon: PaintBucket,
-    conversations: 27,
-    status: 'maintenance' as const,
-    description: 'Especialista em materiais de acabamento'
+// Função para mapear categorias para ícones
+function getIconForCategory(category: string | null) {
+  switch (category) {
+    case 'energia_solar': return Sun;
+    case 'telha_shingle': return Home;
+    case 'steel_frame': return Layers;
+    case 'drywall_divisorias': return Hammer;
+    case 'ferramentas': return Wrench;
+    case 'acabamentos': return PaintBucket;
+    case 'pisos': return PaintBucket;
+    case 'forros': return Layers;
+    default: return Bot;
   }
-];
-
-// Definir os agentes espiões
-const spyAgents = [
-  {
-    id: 'classifier',
-    name: 'Classificador',
-    icon: Brain,
-    status: 'active' as const,
-    description: 'Classifica intenções dos clientes automaticamente',
-    type: 'classifier' as const
-  },
-  {
-    id: 'extractor',
-    name: 'Extrator de Dados',
-    icon: Search,
-    status: 'active' as const,
-    description: 'Extrai informações relevantes das conversas',
-    type: 'extractor' as const
-  }
-];
+}
 
 // Agente Card Component para especialistas
 interface Agent {
@@ -168,6 +110,40 @@ interface AgentsSectionProps {
 export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSectionProps) {
   const [activeTab, setActiveTab] = useState<'specialists' | 'spies'>('specialists');
   const [selectedAgentType, setSelectedAgentType] = useState<'specialist' | 'classifier' | 'extractor'>('specialist');
+  
+  // Buscar agentes reais do banco de dados
+  const { data: realSpecialistAgents, isLoading: loadingSpecialists } = useSpecialistAgents();
+  const { data: classifierAgents, isLoading: loadingClassifiers } = useAgentsByType('classifier');
+  const { data: extractorAgents, isLoading: loadingExtractors } = useAgentsByType('extractor');
+  
+  // Mapear agentes reais para o formato esperado
+  const mappedSpecialistAgents = realSpecialistAgents?.map(agent => ({
+    id: agent.product_category || agent.id,
+    name: agent.agent_name,
+    icon: getIconForCategory(agent.product_category),
+    conversations: Math.floor(Math.random() * 50), // Temporário
+    status: agent.is_active ? 'active' as const : 'maintenance' as const,
+    description: agent.description || 'Agente especializado'
+  })) || [];
+  
+  const mappedSpyAgents = [
+    ...(classifierAgents?.map(agent => ({
+      id: agent.id,
+      name: agent.agent_name,
+      icon: Brain,
+      status: agent.is_active ? 'active' as const : 'maintenance' as const,
+      description: agent.description || 'Classifica intenções dos clientes',
+      type: 'classifier' as const
+    })) || []),
+    ...(extractorAgents?.map(agent => ({
+      id: agent.id,
+      name: agent.agent_name,
+      icon: Search,
+      status: agent.is_active ? 'active' as const : 'maintenance' as const,
+      description: agent.description || 'Extrai dados das conversas',
+      type: 'extractor' as const
+    })) || [])
+  ];
 
   return (
     <div className="space-y-6">
@@ -196,17 +172,25 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {specialistAgents.map((agent) => (
-                    <AgentCard
-                      key={agent.id}
-                      agent={agent}
-                      isSelected={selectedAgent === agent.id && selectedAgentType === 'specialist'}
-                      onClick={() => {
-                        setSelectedAgent(agent.id);
-                        setSelectedAgentType('specialist');
-                      }}
-                    />
-                  ))}
+                  {loadingSpecialists ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    mappedSpecialistAgents.map((agent) => (
+                      <AgentCard
+                        key={agent.id}
+                        agent={agent}
+                        isSelected={selectedAgent === agent.id && selectedAgentType === 'specialist'}
+                        onClick={() => {
+                          setSelectedAgent(agent.id);
+                          setSelectedAgentType('specialist');
+                        }}
+                      />
+                    ))
+                  )}
                   
                   <Button variant="outline" className="w-full mt-4 flex items-center gap-2">
                     <Plus className="w-4 h-4" />
@@ -252,17 +236,25 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {spyAgents.map((agent) => (
-                    <SpyAgentCard
-                      key={agent.id}
-                      agent={agent}
-                      isSelected={selectedAgent === agent.id && selectedAgentType === agent.type}
-                      onClick={() => {
-                        setSelectedAgent(agent.id);
-                        setSelectedAgentType(agent.type);
-                      }}
-                    />
-                  ))}
+                  {(loadingClassifiers || loadingExtractors) ? (
+                    <div className="space-y-2">
+                      {[1, 2].map(i => (
+                        <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    mappedSpyAgents.map((agent) => (
+                      <SpyAgentCard
+                        key={agent.id}
+                        agent={agent}
+                        isSelected={selectedAgent === agent.id && selectedAgentType === agent.type}
+                        onClick={() => {
+                          setSelectedAgent(agent.id);
+                          setSelectedAgentType(agent.type);
+                        }}
+                      />
+                    ))
+                  )}
                 </CardContent>
               </Card>
             </div>

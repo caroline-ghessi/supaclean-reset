@@ -6,7 +6,7 @@ interface SpyAgent {
   id: string;
   name: string;
   icon: LucideIcon;
-  status: 'active' | 'inactive';
+  status: 'active' | 'maintenance';
   description: string;
   type: 'classifier' | 'extractor';
 }
@@ -48,7 +48,7 @@ export function SpyAgentCard({ agent, isSelected, onClick }: SpyAgentCardProps) 
               variant={agent.status === 'active' ? 'default' : 'secondary'}
               className="text-xs"
             >
-              {agent.status === 'active' ? 'Ativo' : 'Inativo'}
+              {agent.status === 'active' ? 'Ativo' : 'Manutenção'}
             </Badge>
           </div>
           
