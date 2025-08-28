@@ -19,7 +19,7 @@ import { KnowledgeBaseManager } from './KnowledgeBaseManager';
 
 interface EnhancedPromptEditorProps {
   selectedAgent: string;
-  agentType: 'specialist' | 'classifier' | 'extractor';
+  agentType: 'specialist' | 'classifier' | 'extractor' | 'lead_scorer';
 }
 
 const LLM_OPTIONS = [
@@ -117,6 +117,7 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
   const getAgentIcon = () => {
     if (agentType === 'classifier') return Brain;
     if (agentType === 'extractor') return Search;
+    if (agentType === 'lead_scorer') return Brain;
     return Bot;
   };
 
@@ -124,6 +125,7 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
     if (agentConfig?.agent_name) return agentConfig.agent_name;
     if (agentType === 'classifier') return 'Agente Classificador';
     if (agentType === 'extractor') return 'Agente Extrator de Dados';
+    if (agentType === 'lead_scorer') return 'Avaliador de Leads';
     return selectedAgent.charAt(0).toUpperCase() + selectedAgent.slice(1).replace('_', ' ');
   };
 
@@ -142,7 +144,8 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
               <CardTitle className="flex items-center gap-2">
                 {getAgentName()}
                 <Badge variant={agentType === 'specialist' ? 'default' : 'secondary'}>
-                  {agentType === 'specialist' ? 'Especialista' : 'Espião'}
+                  {agentType === 'specialist' ? 'Especialista' : 
+                   agentType === 'lead_scorer' ? 'Avaliador' : 'Espião'}
                 </Badge>
               </CardTitle>
               <p className="text-sm text-muted-foreground mt-1">
@@ -190,6 +193,8 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
                   ? 'Instruções para classificar intenções dos clientes'
                   : agentType === 'extractor'
                   ? 'Instruções para extrair dados das conversas'
+                  : agentType === 'lead_scorer'
+                  ? 'Instruções para avaliar temperatura dos leads e calcular score'
                   : 'Instruções completas de como o agente deve se comportar, responder e interagir com os clientes'}
               </p>
               <Textarea
@@ -202,6 +207,8 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
                     ? 'Ex: Você é um classificador de intenções. Analise as mensagens e identifique a categoria do produto...'
                     : agentType === 'extractor'
                     ? 'Ex: Você é um extrator de dados. Analise as conversas e extraia informações relevantes...'
+                    : agentType === 'lead_scorer'
+                    ? 'Ex: Você é um avaliador de leads. Analise conversas e determine a temperatura (cold/warm/hot) e score (0-100) baseado em urgência, dados fornecidos, qualidade do engajamento e histórico de interação...'
                     : `Ex: Você é um assistente especializado em ${selectedAgent}. 
 
 Suas responsabilidades:
@@ -275,7 +282,8 @@ Sempre seja amigável, profissional e prestativo.`
                   <p className="text-sm text-muted-foreground">
                     {agentConfig?.agent_type === 'specialist' ? 'Especialista' : 
                      agentConfig?.agent_type === 'classifier' ? 'Classificador' :
-                     agentConfig?.agent_type === 'extractor' ? 'Extrator' : 'Geral'}
+                     agentConfig?.agent_type === 'extractor' ? 'Extrator' :
+                     agentConfig?.agent_type === 'lead_scorer' ? 'Avaliador de Leads' : 'Geral'}
                   </p>
                 </div>
               </div>

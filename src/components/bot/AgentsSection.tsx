@@ -30,6 +30,7 @@ function getIconForCategory(category: string | null) {
     case 'acabamentos': return PaintBucket;
     case 'pisos': return PaintBucket;
     case 'forros': return Layers;
+    case 'lead_scorer': return Brain;
     default: return Bot;
   }
 }
@@ -108,13 +109,14 @@ interface AgentsSectionProps {
 }
 
 export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSectionProps) {
-  const [activeTab, setActiveTab] = useState<'specialists' | 'spies'>('specialists');
-  const [selectedAgentType, setSelectedAgentType] = useState<'specialist' | 'classifier' | 'extractor'>('specialist');
+  const [activeTab, setActiveTab] = useState<'specialists' | 'spies' | 'leads'>('specialists');
+  const [selectedAgentType, setSelectedAgentType] = useState<'specialist' | 'classifier' | 'extractor' | 'lead_scorer'>('specialist');
   
   // Buscar agentes reais do banco de dados
   const { data: realSpecialistAgents, isLoading: loadingSpecialists } = useSpecialistAgents();
   const { data: classifierAgents, isLoading: loadingClassifiers } = useAgentsByType('classifier');
   const { data: extractorAgents, isLoading: loadingExtractors } = useAgentsByType('extractor');
+  const { data: leadScorerAgents, isLoading: loadingLeadScorers } = useAgentsByType('lead_scorer');
   
   // Mapear agentes reais para o formato esperado
   const mappedSpecialistAgents = realSpecialistAgents?.map(agent => ({
@@ -145,11 +147,19 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
     })) || [])
   ];
 
+  const mappedLeadScorerAgents = leadScorerAgents?.map(agent => ({
+    id: agent.id,
+    name: agent.agent_name,
+    icon: Brain,
+    status: agent.is_active ? 'active' as const : 'maintenance' as const,
+    description: agent.description || 'Avalia temperatura dos leads automaticamente'
+  })) || [];
+
   return (
     <div className="space-y-6">
-      {/* Tabs para Especialistas vs Espiões */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'specialists' | 'spies')}>
-        <TabsList className="grid w-full grid-cols-2">
+      {/* Tabs para Especialistas vs Espiões vs Leads */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'specialists' | 'spies' | 'leads')}>
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="specialists" className="flex items-center gap-2">
             <Brain className="w-4 h-4" />
             Agentes Especialistas
@@ -157,6 +167,10 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
           <TabsTrigger value="spies" className="flex items-center gap-2">
             <Eye className="w-4 h-4" />
             Agentes Espiões
+          </TabsTrigger>
+          <TabsTrigger value="leads" className="flex items-center gap-2">
+            <Brain className="w-4 h-4" />
+            Avaliadores de Leads
           </TabsTrigger>
         </TabsList>
 
@@ -279,6 +293,74 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                     </h3>
                     <p className="text-muted-foreground max-w-md">
                       Escolha um agente espião para configurar seu prompt de análise, LLM e base de conhecimento.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="leads">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Sidebar com Lista de Agentes Avaliadores de Leads */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-primary" />
+                    Avaliadores de Leads
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {loadingLeadScorers ? (
+                    <div className="space-y-2">
+                      {[1].map(i => (
+                        <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+                      ))}
+                    </div>
+                  ) : (
+                    mappedLeadScorerAgents.map((agent) => (
+                      <AgentCard
+                        key={agent.id}
+                        agent={agent}
+                        isSelected={selectedAgent === agent.id && selectedAgentType === 'lead_scorer'}
+                        onClick={() => {
+                          setSelectedAgent(agent.id);
+                          setSelectedAgentType('lead_scorer');
+                        }}
+                      />
+                    ))
+                  )}
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-4 flex items-center gap-2"
+                    onClick={() => window.location.href = '/bot?tab=config'}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Criar Novo Agente
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Área Principal - Editor de Prompt Lead Scorer */}
+            <div className="lg:col-span-2">
+              {selectedAgent && selectedAgentType === 'lead_scorer' ? (
+                <EnhancedPromptEditor 
+                  selectedAgent={selectedAgent as any} 
+                  agentType="lead_scorer"
+                />
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <Brain className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      Selecione um avaliador de leads
+                    </h3>
+                    <p className="text-muted-foreground max-w-md">
+                      Escolha um agente avaliador para configurar seu prompt de análise, LLM e parâmetros.
                     </p>
                   </CardContent>
                 </Card>

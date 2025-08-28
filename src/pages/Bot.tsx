@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bot, Settings, TestTube, Save, Plus, Edit3, Trash2, 
   ChevronRight, Code, MessageSquare, Zap, Brain, 
@@ -13,8 +13,9 @@ import { MasterAgentSection } from '@/components/bot/MasterAgentSection';
 import { ClassificationLogsSection } from '@/components/bot/ClassificationLogsSection';
 import { ClassificationStats } from '@/components/bot/ClassificationStats';
 import { RAGSection } from '@/components/bot/RAGSection';
+import { AgentConfigurationSection } from '@/components/bot/AgentConfigurationSection';
 
-type ActiveTab = 'overview' | 'agents' | 'llm' | 'rag' | 'test';
+type ActiveTab = 'overview' | 'agents' | 'llm' | 'rag' | 'test' | 'config';
 
 interface TabButtonProps {
   active: boolean;
@@ -44,6 +45,15 @@ function TabButton({ active, onClick, icon, label }: TabButtonProps) {
 export default function BotPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+
+  // Verificar se há parâmetro 'tab' na URL
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab') as ActiveTab;
+    if (tab && ['overview', 'agents', 'llm', 'rag', 'test', 'config'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-muted/30 to-muted/50">
@@ -95,6 +105,12 @@ export default function BotPage() {
                 icon={<TestTube className="w-4 h-4" />}
                 label="Testar"
               />
+              <TabButton
+                active={activeTab === 'config'}
+                onClick={() => setActiveTab('config')}
+                icon={<Settings className="w-4 h-4" />}
+                label="Configuração"
+              />
             </div>
 
             {/* Actions */}
@@ -133,6 +149,7 @@ export default function BotPage() {
         {activeTab === 'llm' && <LLMSection />}
         {activeTab === 'rag' && <RAGSection />}
         {activeTab === 'test' && <TestSection />}
+        {activeTab === 'config' && <AgentConfigurationSection />}
       </div>
     </div>
   );
