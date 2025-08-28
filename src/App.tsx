@@ -8,6 +8,7 @@ import { Layout } from "@/components/layout/Layout";
 import Dashboard from "@/pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import { ConversationsPage } from "@/pages/Conversations";
+import { VendedoresPage } from "@/pages/Vendedores";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BotPage from "@/pages/Bot";
 import AuthPage from "@/pages/Auth";
@@ -60,6 +61,7 @@ const App: React.FC = () => {
                   <Route index element={<Dashboard />} />
                   <Route path="/leads-quentes" element={<LeadsQuentes />} />
                   <Route path="/bot" element={<BotPage />} />
+                  <Route path="/vendedores" element={<VendedoresPage />} />
                   <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />
                   <Route path="/atendentes" element={<div className="p-6">Atendentes - Em desenvolvimento</div>} />
                   <Route path="/templates" element={<div className="p-6">Templates - Em desenvolvimento</div>} />

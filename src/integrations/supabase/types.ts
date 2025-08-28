@@ -1046,6 +1046,66 @@ export type Database = {
         }
         Relationships: []
       }
+      quality_metrics: {
+        Row: {
+          automated_quality_score: number | null
+          conversation_id: number
+          conversation_satisfaction_score: number | null
+          created_at: string | null
+          flags: Json | null
+          id: number
+          metric_date: string
+          response_time_avg_minutes: number | null
+          response_time_max_minutes: number | null
+          total_messages_received: number | null
+          total_messages_sent: number | null
+          vendor_id: string
+        }
+        Insert: {
+          automated_quality_score?: number | null
+          conversation_id: number
+          conversation_satisfaction_score?: number | null
+          created_at?: string | null
+          flags?: Json | null
+          id?: number
+          metric_date: string
+          response_time_avg_minutes?: number | null
+          response_time_max_minutes?: number | null
+          total_messages_received?: number | null
+          total_messages_sent?: number | null
+          vendor_id: string
+        }
+        Update: {
+          automated_quality_score?: number | null
+          conversation_id?: number
+          conversation_satisfaction_score?: number | null
+          created_at?: string | null
+          flags?: Json | null
+          id?: number
+          metric_date?: string
+          response_time_avg_minutes?: number | null
+          response_time_max_minutes?: number | null
+          total_messages_received?: number | null
+          total_messages_sent?: number | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quality_metrics_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quality_metrics_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       system_configs: {
         Row: {
           description: string | null
@@ -1094,6 +1154,176 @@ export type Database = {
           level?: string
           message?: string
           source?: string
+        }
+        Relationships: []
+      }
+      vendor_conversations: {
+        Row: {
+          chat_id: string
+          conversation_status: string | null
+          created_at: string | null
+          customer_messages: number | null
+          customer_name: string | null
+          customer_phone: string
+          customer_profile_pic: string | null
+          id: number
+          last_message_at: string | null
+          metadata: Json | null
+          total_messages: number | null
+          updated_at: string | null
+          vendor_id: string
+          vendor_messages: number | null
+        }
+        Insert: {
+          chat_id: string
+          conversation_status?: string | null
+          created_at?: string | null
+          customer_messages?: number | null
+          customer_name?: string | null
+          customer_phone: string
+          customer_profile_pic?: string | null
+          id?: number
+          last_message_at?: string | null
+          metadata?: Json | null
+          total_messages?: number | null
+          updated_at?: string | null
+          vendor_id: string
+          vendor_messages?: number | null
+        }
+        Update: {
+          chat_id?: string
+          conversation_status?: string | null
+          created_at?: string | null
+          customer_messages?: number | null
+          customer_name?: string | null
+          customer_phone?: string
+          customer_profile_pic?: string | null
+          id?: number
+          last_message_at?: string | null
+          metadata?: Json | null
+          total_messages?: number | null
+          updated_at?: string | null
+          vendor_id?: string
+          vendor_messages?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_conversations_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendor_messages: {
+        Row: {
+          chat_id: string
+          content: string | null
+          conversation_id: number
+          created_at: string | null
+          from_me: boolean
+          from_name: string | null
+          from_phone: string | null
+          id: number
+          is_forwarded: boolean | null
+          media_metadata: Json | null
+          media_url: string | null
+          message_type: string
+          metadata: Json | null
+          reply_to_message_id: string | null
+          status: string | null
+          timestamp_whatsapp: string
+          vendor_id: string
+          whapi_message_id: string
+        }
+        Insert: {
+          chat_id: string
+          content?: string | null
+          conversation_id: number
+          created_at?: string | null
+          from_me: boolean
+          from_name?: string | null
+          from_phone?: string | null
+          id?: number
+          is_forwarded?: boolean | null
+          media_metadata?: Json | null
+          media_url?: string | null
+          message_type: string
+          metadata?: Json | null
+          reply_to_message_id?: string | null
+          status?: string | null
+          timestamp_whatsapp: string
+          vendor_id: string
+          whapi_message_id: string
+        }
+        Update: {
+          chat_id?: string
+          content?: string | null
+          conversation_id?: number
+          created_at?: string | null
+          from_me?: boolean
+          from_name?: string | null
+          from_phone?: string | null
+          id?: number
+          is_forwarded?: boolean | null
+          media_metadata?: Json | null
+          media_url?: string | null
+          message_type?: string
+          metadata?: Json | null
+          reply_to_message_id?: string | null
+          status?: string | null
+          timestamp_whatsapp?: string
+          vendor_id?: string
+          whapi_message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "vendor_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_messages_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendors: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          phone_number: string
+          updated_at: string | null
+          whapi_channel_id: string
+          whapi_token: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone_number: string
+          updated_at?: string | null
+          whapi_channel_id: string
+          whapi_token: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone_number?: string
+          updated_at?: string | null
+          whapi_channel_id?: string
+          whapi_token?: string
         }
         Relationships: []
       }

@@ -64,6 +64,12 @@ export function Sidebar() {
           url: '/bot',
           icon: Bot,
           description: 'Configuração do chatbot'
+        },
+        {
+          title: 'Vendedores',
+          url: '/vendedores',
+          icon: Users,
+          description: 'Monitoramento WhatsApp'
         }
       ]
     },
