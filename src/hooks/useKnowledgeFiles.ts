@@ -22,10 +22,11 @@ export interface KnowledgeFile {
   storage_path: string;
   extracted_content?: string;
   metadata?: any;
-  processing_status: 'pending' | 'processing' | 'completed' | 'error';
+  processing_status: 'pending' | 'processing' | 'completed' | 'completed_with_embeddings' | 'error';
   processed_at?: string;
   created_at: string;
   updated_at: string;
+  chunks_count?: number;
 }
 
 export function useKnowledgeFiles(agentCategory: ProductCategory) {
@@ -34,12 +35,22 @@ export function useKnowledgeFiles(agentCategory: ProductCategory) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agent_knowledge_files')
-        .select('*')
+        .select(`
+          *,
+          chunks_count:knowledge_chunks(count)
+        `)
         .eq('agent_category', agentCategory)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as KnowledgeFile[];
+      
+      // Transform the data to include chunks_count as a number
+      const transformedData = data?.map(file => ({
+        ...file,
+        chunks_count: file.chunks_count?.[0]?.count || 0
+      })) || [];
+      
+      return transformedData as KnowledgeFile[];
     },
   });
 }

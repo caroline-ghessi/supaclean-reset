@@ -170,6 +170,7 @@ export function useFAQPatterns(agentType?: ProductCategory) {
 // Hook para gerar embeddings de arquivos processados
 export function useGenerateEmbeddings() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (fileId: string) => {
@@ -198,9 +199,12 @@ export function useGenerateEmbeddings() {
       });
 
       if (error) throw error;
-      return data;
+      return { ...data, agentCategory: file.agent_category };
     },
     onSuccess: (data) => {
+      // Invalidate queries to refresh UI
+      queryClient.invalidateQueries({ queryKey: ['knowledge-files'] });
+      
       toast({
         title: "Embeddings gerados com sucesso",
         description: `${data.chunksCreated} chunks criados para busca semântica.`,

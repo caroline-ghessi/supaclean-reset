@@ -262,12 +262,28 @@ export function RAGSection() {
                           )}
                         </div>
                         <div className="flex gap-2">
-                          <Badge 
-                            variant={(file as any).content_embedding ? 'default' : 'secondary'}
-                          >
-                            {(file as any).content_embedding ? 'Com Embedding' : 'Sem Embedding'}
-                          </Badge>
-                          {file.processing_status === 'completed' && !(file as any).content_embedding && (
+                          {file.chunks_count && file.chunks_count > 0 ? (
+                            <Badge variant="default">
+                              Com Embeddings ({file.chunks_count} chunks)
+                            </Badge>
+                          ) : file.processing_status === 'completed_with_embeddings' ? (
+                            <Badge variant="default">
+                              Com Embeddings
+                            </Badge>
+                          ) : file.processing_status === 'processing' ? (
+                            <Badge variant="outline">
+                              Processando...
+                            </Badge>
+                          ) : file.processing_status === 'error' ? (
+                            <Badge variant="destructive">
+                              Erro
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">
+                              Sem Embeddings
+                            </Badge>
+                          )}
+                          {file.processing_status === 'completed' && (!file.chunks_count || file.chunks_count === 0) && (
                             <Button
                               size="sm"
                               onClick={() => handleGenerateEmbeddings(file.id)}
