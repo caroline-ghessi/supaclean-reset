@@ -181,20 +181,11 @@ async function handleIncomingMessage(message: any, contact: any) {
       })
       .eq('id', conversation.id);
 
-    // Trigger bot processing (call orchestrator)
-    const { error: functionError } = await supabase.functions.invoke('process-whatsapp-message', {
-      body: {
-        conversationId: conversation.id,
-        message: content,
-        whatsappNumber: from
-      }
-    });
+    // NOVA LÓGICA: Adicionar mensagem ao buffer em vez de processar imediatamente
+    await handleMessageBuffer(conversation.id, content);
 
-    if (functionError) {
-      console.error('Failed to process message with bot:', functionError);
-    }
-
-    console.log('Message processed successfully:', {
+    // Log para debug
+    console.log('Message added to buffer:', {
       conversationId: conversation.id,
       messageId: whatsappMessageId,
       content: content.substring(0, 50)
@@ -212,6 +203,73 @@ async function handleIncomingMessage(message: any, contact: any) {
         whatsappMessageId,
         from
       }
+    });
+  }
+}
+
+// Nova função para gerenciar buffer de mensagens
+async function handleMessageBuffer(conversationId: string, messageContent: string) {
+  try {
+    // Verificar se já existe buffer ativo para esta conversa
+    const { data: existingBuffer, error: bufferError } = await supabase
+      .from('message_buffers')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .eq('processed', false)
+      .single();
+
+    const now = new Date();
+    
+    if (existingBuffer) {
+      // Adicionar mensagem ao buffer existente
+      const currentMessages = existingBuffer.messages || [];
+      currentMessages.push({
+        content: messageContent,
+        timestamp: now.toISOString()
+      });
+
+      await supabase
+        .from('message_buffers')
+        .update({
+          messages: currentMessages,
+          should_process_at: new Date(now.getTime() + 60000).toISOString() // +60 segundos
+        })
+        .eq('id', existingBuffer.id);
+
+    } else {
+      // Criar novo buffer
+      const processAt = new Date(now.getTime() + 60000); // 60 segundos
+      
+      await supabase
+        .from('message_buffers')
+        .insert({
+          conversation_id: conversationId,
+          messages: [{
+            content: messageContent,
+            timestamp: now.toISOString()
+          }],
+          buffer_started_at: now.toISOString(),
+          should_process_at: processAt.toISOString(),
+          processed: false
+        });
+
+      // Agendar processamento via Edge Function (simulação com timeout)
+      // Em produção real, usaríamos pg_cron ou sistema de jobs
+      setTimeout(async () => {
+        await supabase.functions.invoke('process-message-buffer', {
+          body: { conversationId }
+        });
+      }, 60000);
+    }
+
+  } catch (error) {
+    console.error('Error handling message buffer:', error);
+    
+    await supabase.from('system_logs').insert({
+      level: 'error',
+      source: 'whatsapp-webhook',
+      message: 'Failed to handle message buffer',
+      data: { error: error.message, conversationId }
     });
   }
 }

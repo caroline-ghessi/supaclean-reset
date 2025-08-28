@@ -63,14 +63,9 @@ export abstract class BaseAgent {
     }).format(value);
   }
 
+  // Quick replies removidas - agora conversação é apenas texto natural
   protected generateQuickReplies(context: string[]): string[] {
-    const baseReplies = [
-      '📞 Falar com atendente',
-      '📋 Receber orçamento',
-      '📍 Ver localização'
-    ];
-
-    return [...context, ...baseReplies].slice(0, 6);
+    return []; // Não usar mais quick replies
   }
 
   protected shouldEscalateToHuman(

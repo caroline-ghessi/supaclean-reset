@@ -16,14 +16,7 @@ export class EnergiaSolarAgent extends BaseAgent {
 
 Somos parceiros oficiais da GE e temos as melhores soluções em energia solar do mercado. 
 
-Para te ajudar melhor, qual é o valor médio da sua conta de energia elétrica?`,
-        quickReplies: [
-          'R$ 150-300',
-          'R$ 300-500', 
-          'R$ 500-800',
-          'Mais de R$ 800',
-          '💬 Falar com especialista'
-        ]
+Para te ajudar melhor, qual é o valor médio da sua conta de energia elétrica?`
       };
     }
 
@@ -34,13 +27,7 @@ Para te ajudar melhor, qual é o valor médio da sua conta de energia elétrica?
 
 Isso me ajuda a dimensionar corretamente a potência do sistema e calcular o retorno do investimento. 
 
-Qual é o valor médio da sua conta mensal?`,
-        quickReplies: [
-          'R$ 200-400',
-          'R$ 400-600',
-          'R$ 600-1000',
-          'Mais de R$ 1000'
-        ]
+Qual é o valor médio da sua conta mensal?`
       };
     }
 
@@ -61,13 +48,7 @@ Qual é o valor médio da sua conta mensal?`,
 • Retorno do investimento em 4-6 anos
 • Vida útil de 25+ anos com garantia
 
-Você gostaria de ter também um sistema de backup com baterias para não ficar sem energia durante quedas de luz?`,
-        quickReplies: [
-          '🔋 Sim, quero backup',
-          '⚡ Só sistema solar',
-          '📋 Quero orçamento',
-          '📞 Falar com técnico'
-        ]
+Você gostaria de ter também um sistema de backup com baterias para não ficar sem energia durante quedas de luz?`
       };
     }
 
@@ -79,12 +60,6 @@ Você gostaria de ter também um sistema de backup com baterias para não ficar 
 Com sua conta de energia, posso adiantar que o investimento fica entre R$ 15.000 a R$ 35.000, e você pode financiar em até 120x.
 
 Vou te conectar com nosso especialista solar agora mesmo. Qual o melhor horário para ele te ligar?`,
-        quickReplies: [
-          '🌅 Manhã (8h-12h)',
-          '🌞 Tarde (13h-17h)',
-          '🌙 Noite (18h-20h)',
-          '📞 Agora mesmo'
-        ],
         shouldTransferToHuman: true
       };
     }
@@ -101,13 +76,7 @@ Vou te conectar com nosso especialista solar agora mesmo. Qual o melhor horário
 
 O sistema é conectado à rede elétrica (on-grid) e durante o dia suas placas geram energia que pode ser consumida ou injetada na rede, criando créditos para usar à noite.
 
-Quer agendar uma visita técnica gratuita para dimensionamento personalizado?`,
-        quickReplies: [
-          '✅ Agendar visita',
-          '🏠 Minha casa serve?',
-          '💰 Ver financiamento',
-          '📱 Quero WhatsApp'
-        ]
+Quer agendar uma visita técnica gratuita para dimensionamento personalizado?`
       };
     }
 
@@ -122,13 +91,7 @@ Quer agendar uma visita técnica gratuita para dimensionamento personalizado?`,
 
 A energia solar se paga sozinha! A economia na conta de luz paga o financiamento do sistema.
 
-O que te interessou mais na energia solar? Economia, sustentabilidade ou independência energética?`,
-      quickReplies: [
-        '💰 Economia na conta',
-        '🌱 Sustentabilidade', 
-        '🔋 Independência energética',
-        '📊 Ver simulação'
-      ]
+O que te interessou mais na energia solar? Economia, sustentabilidade ou independência energética?`
     };
   }
 }
