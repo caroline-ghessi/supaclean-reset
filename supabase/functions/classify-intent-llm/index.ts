@@ -25,10 +25,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get classifier agent configuration
+    // Get classifier agent configuration from new table
     const { data: classifierAgent, error: agentError } = await supabase
-      .from('agent_prompts')
-      .select('*, agent_prompt_steps(*)')
+      .from('agent_configs')
+      .select('*')
       .eq('agent_type', 'classifier')
       .eq('is_active', true)
       .single();
@@ -38,24 +38,11 @@ serve(async (req) => {
       throw new Error('Classifier agent not configured');
     }
 
-    // Get the classification prompt from the database
-    const classificationStep = classifierAgent.agent_prompt_steps.find(
-      (step: any) => step.step_key === 'classification'
-    );
+    // Use the system prompt directly
+    const fullPrompt = `${classifierAgent.system_prompt}
 
-    if (!classificationStep) {
-      throw new Error('Classification prompt not found');
-    }
-
-    // Replace variables in the prompt
-    const classificationPrompt = classificationStep.prompt_template
-      .replace('{{message}}', message)
-      .replace('{{current_product_group}}', currentProductGroup || '');
-
-    // Add knowledge base if available
-    const fullPrompt = classifierAgent.knowledge_base 
-      ? `${classifierAgent.knowledge_base}\n\n${classificationPrompt}`
-      : classificationPrompt;
+Mensagem do cliente: "${message}"
+Categoria atual: ${currentProductGroup || 'indefinido'}`;
 
     // Get appropriate API key based on configured LLM
     let apiKey = '';

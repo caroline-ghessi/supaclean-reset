@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_configs: {
+        Row: {
+          agent_name: string
+          agent_type: Database["public"]["Enums"]["agent_type"]
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          is_spy: boolean | null
+          max_tokens: number | null
+          product_category:
+            | Database["public"]["Enums"]["product_category"]
+            | null
+          system_prompt: string
+          temperature: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_name: string
+          agent_type: Database["public"]["Enums"]["agent_type"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_spy?: boolean | null
+          max_tokens?: number | null
+          product_category?:
+            | Database["public"]["Enums"]["product_category"]
+            | null
+          system_prompt: string
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_name?: string
+          agent_type?: Database["public"]["Enums"]["agent_type"]
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_spy?: boolean | null
+          max_tokens?: number | null
+          product_category?:
+            | Database["public"]["Enums"]["product_category"]
+            | null
+          system_prompt?: string
+          temperature?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       agent_knowledge_files: {
         Row: {
           agent_category: Database["public"]["Enums"]["product_category"]
@@ -181,6 +232,70 @@ export type Database = {
         }
         Relationships: []
       }
+      classification_history: {
+        Row: {
+          analysis_data: Json | null
+          classifier_agent_id: string | null
+          confidence_score: number
+          conversation_id: string
+          created_at: string | null
+          id: string
+          new_product_group: Database["public"]["Enums"]["product_category"]
+          old_product_group:
+            | Database["public"]["Enums"]["product_category"]
+            | null
+          trigger_message_id: string | null
+        }
+        Insert: {
+          analysis_data?: Json | null
+          classifier_agent_id?: string | null
+          confidence_score: number
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          new_product_group: Database["public"]["Enums"]["product_category"]
+          old_product_group?:
+            | Database["public"]["Enums"]["product_category"]
+            | null
+          trigger_message_id?: string | null
+        }
+        Update: {
+          analysis_data?: Json | null
+          classifier_agent_id?: string | null
+          confidence_score?: number
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          new_product_group?: Database["public"]["Enums"]["product_category"]
+          old_product_group?:
+            | Database["public"]["Enums"]["product_category"]
+            | null
+          trigger_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classification_history_classifier_agent_id_fkey"
+            columns: ["classifier_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_history_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_history_trigger_message_id_fkey"
+            columns: ["trigger_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       classification_keywords: {
         Row: {
           category: string
@@ -331,7 +446,11 @@ export type Database = {
       conversations: {
         Row: {
           assigned_agent_id: string | null
+          buffer_until: string | null
+          classification_updated_at: string | null
+          confidence_score: number | null
           created_at: string | null
+          current_agent_id: string | null
           customer_city: string | null
           customer_email: string | null
           customer_name: string | null
@@ -354,7 +473,11 @@ export type Database = {
         }
         Insert: {
           assigned_agent_id?: string | null
+          buffer_until?: string | null
+          classification_updated_at?: string | null
+          confidence_score?: number | null
           created_at?: string | null
+          current_agent_id?: string | null
           customer_city?: string | null
           customer_email?: string | null
           customer_name?: string | null
@@ -377,7 +500,11 @@ export type Database = {
         }
         Update: {
           assigned_agent_id?: string | null
+          buffer_until?: string | null
+          classification_updated_at?: string | null
+          confidence_score?: number | null
           created_at?: string | null
+          current_agent_id?: string | null
           customer_city?: string | null
           customer_email?: string | null
           customer_name?: string | null
@@ -398,7 +525,76 @@ export type Database = {
           whatsapp_name?: string | null
           whatsapp_number?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "conversations_current_agent_id_fkey"
+            columns: ["current_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_configs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      extracted_contexts: {
+        Row: {
+          confidence: number | null
+          context_data: Json
+          context_type: string
+          conversation_id: string
+          created_at: string | null
+          extractor_agent_id: string | null
+          id: string
+          is_active: boolean | null
+          source_message_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          confidence?: number | null
+          context_data: Json
+          context_type: string
+          conversation_id: string
+          created_at?: string | null
+          extractor_agent_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          source_message_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          confidence?: number | null
+          context_data?: Json
+          context_type?: string
+          conversation_id?: string
+          created_at?: string | null
+          extractor_agent_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          source_message_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extracted_contexts_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extracted_contexts_extractor_agent_id_fkey"
+            columns: ["extractor_agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_configs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extracted_contexts_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       faq_patterns: {
         Row: {
@@ -661,15 +857,21 @@ export type Database = {
       }
       messages: {
         Row: {
+          agent_id: string | null
+          agent_type: Database["public"]["Enums"]["agent_type"] | null
+          classifier_analysis: Json | null
           content: string
           conversation_id: string
           created_at: string | null
           delivered_at: string | null
+          extractor_analysis: Json | null
           id: string
           is_read: boolean | null
           media_type: string | null
           media_url: string | null
           metadata: Json | null
+          processed_by_classifier: boolean | null
+          processed_by_extractor: boolean | null
           read_at: string | null
           sender_name: string | null
           sender_type: Database["public"]["Enums"]["sender_type"]
@@ -677,15 +879,21 @@ export type Database = {
           whatsapp_message_id: string | null
         }
         Insert: {
+          agent_id?: string | null
+          agent_type?: Database["public"]["Enums"]["agent_type"] | null
+          classifier_analysis?: Json | null
           content: string
           conversation_id: string
           created_at?: string | null
           delivered_at?: string | null
+          extractor_analysis?: Json | null
           id?: string
           is_read?: boolean | null
           media_type?: string | null
           media_url?: string | null
           metadata?: Json | null
+          processed_by_classifier?: boolean | null
+          processed_by_extractor?: boolean | null
           read_at?: string | null
           sender_name?: string | null
           sender_type: Database["public"]["Enums"]["sender_type"]
@@ -693,15 +901,21 @@ export type Database = {
           whatsapp_message_id?: string | null
         }
         Update: {
+          agent_id?: string | null
+          agent_type?: Database["public"]["Enums"]["agent_type"] | null
+          classifier_analysis?: Json | null
           content?: string
           conversation_id?: string
           created_at?: string | null
           delivered_at?: string | null
+          extractor_analysis?: Json | null
           id?: string
           is_read?: boolean | null
           media_type?: string | null
           media_url?: string | null
           metadata?: Json | null
+          processed_by_classifier?: boolean | null
+          processed_by_extractor?: boolean | null
           read_at?: string | null
           sender_name?: string | null
           sender_type?: Database["public"]["Enums"]["sender_type"]
@@ -709,6 +923,13 @@ export type Database = {
           whatsapp_message_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "messages_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_configs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "messages_conversation_id_fkey"
             columns: ["conversation_id"]
@@ -909,6 +1130,10 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      get_responding_agent: {
+        Args: { conversation_uuid: string }
+        Returns: string
+      }
       halfvec_avg: {
         Args: { "": number[] }
         Returns: unknown
@@ -1056,6 +1281,7 @@ export type Database = {
       }
     }
     Enums: {
+      agent_type: "general" | "classifier" | "extractor" | "specialist"
       conversation_status:
         | "waiting"
         | "active"
@@ -1206,6 +1432,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      agent_type: ["general", "classifier", "extractor", "specialist"],
       conversation_status: [
         "waiting",
         "active",

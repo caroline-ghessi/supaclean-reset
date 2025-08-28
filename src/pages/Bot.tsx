@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { OverviewSection } from '@/components/bot/OverviewSection';
 import { AgentsSection } from '@/components/bot/AgentsSection';
+import { AgentConfigurationSection } from '@/components/bot/AgentConfigurationSection';
 import { LLMSection } from '@/components/bot/LLMSection';
 import { TestSection } from '@/components/bot/TestSection';
 import { MasterAgentSection } from '@/components/bot/MasterAgentSection';
@@ -122,7 +123,8 @@ export default function BotPage() {
           </div>
         )}
         {activeTab === 'agents' && (
-          <div>
+          <div className="space-y-6">
+            <AgentConfigurationSection />
             <MasterAgentSection />
             <AgentsSection 
               selectedAgent={selectedAgent} 

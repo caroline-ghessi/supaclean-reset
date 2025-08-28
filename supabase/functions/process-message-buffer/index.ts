@@ -103,23 +103,25 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Gerar resposta do agente especializado
-    let botResponse;
+    // Gerar resposta usando o novo sistema de agentes inteligentes
+    const agentResponse = await supabase.functions.invoke('intelligent-agent-response', {
+      body: {
+        message: combinedMessage,
+        conversationId,
+        productCategory: newProductGroup
+      }
+    });
 
-    // Se não conseguiu classificar ou é primeira interação indefinida
-    if (!newProductGroup || newProductGroup === 'indefinido') {
+    let botResponse = {
+      text: "Olá! Um especialista entrará em contato em breve.",
+      transferToHuman: false
+    };
+
+    if (agentResponse.data?.response) {
       botResponse = {
-        text: "Olá! Sobre qual produto ou solução você busca atendimento?",
+        text: agentResponse.data.response,
         transferToHuman: false
       };
-    } else {
-      // Usar agente especializado baseado na categoria
-      botResponse = await generateSpecializedResponse(
-        combinedMessage,
-        newProductGroup,
-        conversation,
-        extractionResult.data?.customerData
-      );
     }
 
     // Salvar resposta do bot

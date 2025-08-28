@@ -25,10 +25,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get extractor agent configuration
+    // Get extractor agent configuration from new table
     const { data: extractorAgent, error: agentError } = await supabase
-      .from('agent_prompts')
-      .select('*, agent_prompt_steps(*)')
+      .from('agent_configs')
+      .select('*')
       .eq('agent_type', 'extractor')
       .eq('is_active', true)
       .single();
@@ -54,24 +54,13 @@ serve(async (req) => {
       `${msg.sender_type === 'customer' ? 'Cliente' : 'Atendente'}: ${msg.content}`
     ).join('\n');
 
-    // Get the extraction prompt from the database
-    const extractionStep = extractorAgent.agent_prompt_steps.find(
-      (step: any) => step.step_key === 'extraction'
-    );
+    // Use the system prompt directly with conversation context
+    const fullPrompt = `${extractorAgent.system_prompt}
 
-    if (!extractionStep) {
-      throw new Error('Extraction prompt not found');
-    }
+Histórico da conversa:
+${conversationHistory}
 
-    // Replace variables in the prompt
-    const extractionPrompt = extractionStep.prompt_template
-      .replace('{{conversation_history}}', conversationHistory)
-      .replace('{{message}}', message);
-
-    // Add knowledge base if available
-    const fullPrompt = extractorAgent.knowledge_base 
-      ? `${extractorAgent.knowledge_base}\n\n${extractionPrompt}`
-      : extractionPrompt;
+Última mensagem: "${message}"`;
 
     // Get appropriate API key based on configured LLM
     let apiKey = '';
