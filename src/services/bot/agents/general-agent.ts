@@ -20,14 +20,6 @@ Somos especialistas em soluções completas para construção civil:
 ${this.companyInfo.specialties.map(spec => `• ${spec}`).join('\n')}
 
 Em que posso te ajudar hoje?`,
-        quickReplies: [
-          '⚡ Energia Solar',
-          '🏠 Telha Shingle',
-          '🏗️ Steel Frame',
-          '🧱 Drywall',
-          '🔧 Ferramentas',
-          '📍 Informações da empresa'
-        ]
       };
     }
 
@@ -54,12 +46,6 @@ Em que posso te ajudar hoje?`,
 • Sábado: 8h às 12h
 
 Como posso te ajudar com seu projeto?`,
-        quickReplies: [
-          '🏠 Projeto residencial',
-          '🏢 Projeto comercial',
-          '📋 Solicitar orçamento',
-          '📞 Falar com vendedor'
-        ]
       };
     }
 
@@ -83,12 +69,6 @@ Como posso te ajudar com seu projeto?`,
 🛡️ Garantia geral de 5 anos
 
 Para fazer um pré-orçamento, qual é a área total da construção?`,
-        quickReplies: [
-          '🏠 80-120m²',
-          '🏠 120-200m²',
-          '🏢 200-400m²',
-          '📞 Falar com arquiteto'
-        ]
       };
     }
 
@@ -115,12 +95,6 @@ Para fazer um pré-orçamento, qual é a área total da construção?`,
 ✅ Melhor custo-benefício
 
 Qual produto ou serviço você gostaria de orçar?`,
-        quickReplies: [
-          '⚡ Energia Solar',
-          '🏠 Telha Shingle',
-          '🏗️ Steel Frame',
-          '🧱 Drywall e Forros'
-        ]
       };
     }
 
@@ -148,12 +122,6 @@ Qual produto ou serviço você gostaria de orçar?`,
 🤝 Parcerias com as melhores marcas
 
 Quer conhecer alguns projetos que já realizamos?`,
-        quickReplies: [
-          '📸 Ver projetos realizados',
-          '⭐ Depoimentos de clientes',
-          '🏆 Certificações',
-          '📞 Falar com supervisor'
-        ]
       };
     }
 
@@ -182,12 +150,6 @@ Quer conhecer alguns projetos que já realizamos?`,
 ✅ Acompanhar seu projeto do início ao fim
 
 Sobre qual produto você gostaria de saber mais?`,
-        quickReplies: [
-          '⚡ Energia Solar',
-          '🏠 Telhas e Coberturas',
-          '🏗️ Estruturas',
-          '🎨 Acabamentos'
-        ]
       };
     }
 
@@ -209,12 +171,6 @@ Sobre qual produto você gostaria de saber mais?`,
 📋 Interesse: Qual produto/serviço específico
 
 Um consultor especializado entrará em contato em breve!`,
-        quickReplies: [
-          '📱 WhatsApp atual está bom',
-          '☎️ Prefiro outro telefone',
-          '🏠 Quero visita técnica',
-          '📧 Prefiro por e-mail'
-        ],
         shouldTransferToHuman: true
       };
     }
@@ -233,12 +189,6 @@ Um consultor especializado entrará em contato em breve!`,
 
 **O que você está procurando?**
 Posso te dar informações detalhadas sobre qualquer um dos nossos produtos e serviços!`,
-      quickReplies: [
-        '💡 Economizar energia',
-        '🏠 Reformar/construir',
-        '🔧 Comprar ferramentas',
-        '📋 Fazer orçamento'
-      ]
     };
   }
 }

@@ -183,7 +183,230 @@ Deno.serve(async (req) => {
   }
 });
 
-// Função para gerar resposta especializada
+// Importar agentes necessários
+class BaseAgent {
+  protected companyInfo = {
+    name: 'Drystore',
+    phone: '(51) 99999-0000',
+    address: 'Porto Alegre, RS',
+    website: 'www.drystore.com.br',
+    specialties: [
+      'Energia Solar - Parceiro GE',
+      'Telhas Shingle - Telhado dos Sonhos',
+      'Steel Frame - Construção Seca',
+      'Drywall - Divisórias e Forros',
+      'Ferramentas Profissionais',
+      'Pisos e Acabamentos'
+    ]
+  };
+
+  protected getGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
+  }
+
+  protected extractContextualInfo(message: string) {
+    const lowerMessage = message.toLowerCase();
+    return {
+      hasUrgency: /urgente|hoje|agora|rápido|imediato/.test(lowerMessage),
+      wantsContact: /contato|telefone|ligar|falar|atendente/.test(lowerMessage),
+      wantsBudget: /preço|valor|quanto|orçamento|custo/.test(lowerMessage),
+      mentionedCompetitor: /concorrente|outro|empresa|comparar/.test(lowerMessage)
+    };
+  }
+}
+
+class GeneralAgent extends BaseAgent {
+  async generateResponse(message, conversationData) {
+    const messageCount = conversationData.messages?.length || 0;
+
+    // Greeting flow
+    if (messageCount <= 2 || message.match(/oi|olá|ola|bom dia|boa tarde|boa noite|hello|hey/i)) {
+      return {
+        text: `${this.getGreeting()}! 👋 Bem-vindo à **${this.companyInfo.name}**! 
+
+Somos especialistas em soluções completas para construção civil:
+
+🌟 **Nossas especialidades:**
+${this.companyInfo.specialties.map(spec => `• ${spec}`).join('\n')}
+
+Em que posso te ajudar hoje?`,
+        transferToHuman: false
+      };
+    }
+
+    // Default helpful response
+    return {
+      text: `😊 **Como posso te ajudar hoje?**
+
+**Principais serviços da ${this.companyInfo.name}:**
+⚡ **Energia Solar** - Economia na conta de luz
+🏠 **Telha Shingle** - Telhados modernos e duráveis  
+🏗️ **Steel Frame** - Construção rápida e econômica
+🧱 **Drywall** - Divisórias e forros profissionais
+🔧 **Ferramentas** - Equipamentos das melhores marcas
+🎨 **Acabamentos** - Pisos, tintas e revestimentos
+
+**O que você está procurando?**
+Posso te dar informações detalhadas sobre qualquer um dos nossos produtos e serviços!`,
+      transferToHuman: false
+    };
+  }
+}
+
+class SpecializedAgentFactory {
+  getAgent(category) {
+    // Para categorias específicas, retornar agentes especializados inline
+    switch(category) {
+      case 'energia_solar':
+        return {
+          async generateResponse(message, conversationData) {
+            return {
+              text: `Que bom que você tem interesse em energia solar! 🌞
+
+É uma das melhores formas de reduzir drasticamente sua conta de luz. Nossa parceria com a GE nos permite oferecer sistemas de alta qualidade.
+
+Para te ajudar melhor, você pode me contar qual o valor da sua conta de energia atual?`,
+              transferToHuman: false
+            };
+          }
+        };
+      
+      case 'telha_shingle':
+        return {
+          async generateResponse(message, conversationData) {
+            return {
+              text: `As telhas shingle são realmente uma excelente escolha para seu telhado! 🏠
+
+Elas oferecem:
+✅ Beleza e modernidade
+✅ Durabilidade superior (até 30 anos)
+✅ Proteção contra intempéries
+✅ Instalação rápida e eficiente
+
+Você já tem o projeto definido ou ainda está na fase de planejamento?`,
+              transferToHuman: false
+            };
+          }
+        };
+
+      case 'steel_frame':
+        return {
+          async generateResponse(message, conversationData) {
+            return {
+              text: `Steel frame é uma tecnologia incrível para construção! 🏗️
+
+**Vantagens:**
+⚡ Construção até 70% mais rápida
+💰 Economia de até 30% no custo total
+🌱 Sustentável e ecológica
+🏠 Estrutura resistente e durável
+
+Você já tem o projeto arquitetônico ou ainda está na fase inicial de planejamento?`,
+              transferToHuman: false
+            };
+          }
+        };
+
+      case 'drywall_divisorias':
+        return {
+          async generateResponse(message, conversationData) {
+            return {
+              text: `Drywall é perfeito para divisórias e acabamentos de qualidade! 🧱
+
+**Benefícios:**
+🚀 Instalação rápida e limpa
+🎨 Acabamento profissional
+🔧 Facilidade para instalações elétricas
+💡 Isolamento acústico e térmico
+
+Qual ambiente você pretende trabalhar? Residencial ou comercial?`,
+              transferToHuman: false
+            };
+          }
+        };
+
+      case 'ferramentas':
+        return {
+          async generateResponse(message, conversationData) {
+            return {
+              text: `Temos uma linha completa de ferramentas profissionais! 🔧
+
+**Marcas disponíveis:**
+⚡ Makita - Qualidade japonesa
+🔥 DeWalt - Resistência profissional  
+🛠️ Bosch - Tecnologia alemã
+🔨 Stanley - Tradição americana
+
+Qual ferramenta você está buscando? Posso te ajudar a encontrar a ideal para sua necessidade.`,
+              transferToHuman: false
+            };
+          }
+        };
+
+      case 'pisos':
+        return {
+          async generateResponse(message, conversationData) {
+            return {
+              text: `Nossos pisos oferecem qualidade e beleza para transformar seu ambiente! 🏠
+
+**Opções disponíveis:**
+🌟 Piso vinílico - Resistente e moderno
+🪵 Piso laminado - Beleza da madeira
+🧱 Porcelanato - Elegância e durabilidade
+🏢 Carpete comercial - Conforto e praticidade
+
+Você tem ideia de quantos metros quadrados precisa ou quais ambientes vai revestir?`,
+              transferToHuman: false
+            };
+          }
+        };
+
+      case 'acabamentos':
+        return {
+          async generateResponse(message, conversationData) {
+            return {
+              text: `Temos uma linha completa de acabamentos para deixar seu projeto perfeito! 🎨
+
+**Produtos disponíveis:**
+🎨 Tintas premium - Suvinil, Coral
+✨ Texturas especiais - Efeitos únicos
+🪵 Vernizes e stains - Proteção da madeira
+🌈 Consultoria de cores - Harmonização perfeita
+
+Qual tipo de acabamento você está procurando?`,
+              transferToHuman: false
+            };
+          }
+        };
+
+      case 'forros':
+        return {
+          async generateResponse(message, conversationData) {
+            return {
+              text: `Nossos forros são ideais para dar o acabamento perfeito ao seu ambiente! ✨
+
+**Tipos disponíveis:**
+🏠 Forro de gesso - Elegância clássica
+💡 Forro com iluminação - Modernidade
+🌡️ Forro térmico - Conforto e economia
+🎵 Forro acústico - Isolamento sonoro
+
+Qual tipo de ambiente você quer instalar o forro? Residencial, comercial ou industrial?`,
+              transferToHuman: false
+            };
+          }
+        };
+
+      default:
+        return new GeneralAgent();
+    }
+  }
+}
+
+// Função para gerar resposta usando agentes reais
 async function generateSpecializedResponse(
   message: string,
   productGroup: string,
@@ -191,69 +414,38 @@ async function generateSpecializedResponse(
   customerData: any
 ) {
   try {
-    // Buscar mensagem de saudação configurável do system_configs
-    let welcomeMessage = "Olá! 😊 Bem-vindo à Drystore!\n\nSou o assistente virtual e estou aqui para ajudar você a encontrar a melhor solução.\n\n**Como posso ajudar hoje?**";
-    
-    if (productGroup === 'saudacao') {
-      const { data: config } = await supabase
-        .from('system_configs')
-        .select('value')
-        .eq('key', 'master_agent_welcome_message')
-        .single();
-      
-      if (config?.value) {
-        welcomeMessage = config.value;
-      }
+    // Buscar mensagens da conversa para contexto
+    const { data: messages } = await supabase
+      .from('messages')
+      .select('content, sender_type, created_at')
+      .eq('conversation_id', conversation.id)
+      .order('created_at', { ascending: true });
+
+    // Preparar dados da conversa para o agente
+    const conversationData = {
+      ...conversation,
+      messages: messages || [],
+      project_contexts: customerData
+    };
+
+    // Usar agente geral para categorias indefinidas ou saudação
+    if (['indefinido', 'saudacao', 'institucional'].includes(productGroup)) {
+      const generalAgent = new GeneralAgent();
+      const response = await generalAgent.generateResponse(message, conversationData);
+      return {
+        text: response.text,
+        transferToHuman: response.transferToHuman || false
+      };
+    } else {
+      // Usar agente especializado via factory
+      const factory = new SpecializedAgentFactory();
+      const agent = factory.getAgent(productGroup);
+      const response = await agent.generateResponse(message, conversationData);
+      return {
+        text: response.text,
+        transferToHuman: response.transferToHuman || false
+      };
     }
-
-    // Mapear categoria para resposta apropriada
-    const responses = {
-      'energia_solar': {
-        text: `Olá! Que bom que você tem interesse em energia solar! É uma das melhores formas de reduzir drasticamente sua conta de luz. Para te ajudar melhor, você pode me contar qual o valor da sua conta de energia atual?`,
-        transferToHuman: false
-      },
-      'telha_shingle': {
-        text: `Olá! As telhas shingle são realmente uma excelente escolha para seu telhado! Elas oferecem beleza, durabilidade e proteção superior. Você já tem o projeto definido ou ainda está na fase de planejamento?`,
-        transferToHuman: false
-      },
-      'steel_frame': {
-        text: `Olá! Steel frame é uma tecnologia incrível para construção - rápida, econômica e sustentável! Você já tem o projeto arquitetônico ou ainda está na fase inicial de planejamento?`,
-        transferToHuman: false
-      },
-      'drywall_divisorias': {
-        text: `Olá! Drywall é perfeito para divisórias e acabamentos de qualidade! É prático, rápido de instalar e oferece ótimo acabamento. Qual ambiente você pretende trabalhar?`,
-        transferToHuman: false
-      },
-      'ferramentas': {
-        text: `Olá! Temos uma linha completa de ferramentas profissionais para todos os tipos de trabalho! Qual ferramenta você está buscando? Posso te ajudar a encontrar a ideal para sua necessidade.`,
-        transferToHuman: false
-      },
-      'pisos': {
-        text: `Olá! Nossos pisos oferecem qualidade e beleza para transformar seu ambiente! Você tem ideia de quantos metros quadrados precisa ou quais ambientes vai revestir?`,
-        transferToHuman: false
-      },
-      'acabamentos': {
-        text: `Olá! Temos uma linha completa de acabamentos para deixar seu projeto perfeito! Qual tipo de acabamento você está procurando?`,
-        transferToHuman: false
-      },
-      'forros': {
-        text: `Olá! Nossos forros são ideais para dar o acabamento perfeito ao seu ambiente! Qual tipo de ambiente você quer instalar o forro?`,
-        transferToHuman: false
-      },
-      'institucional': {
-        text: `Olá! Somos a Drystore, especialistas em materiais de construção e soluções inovadoras! Estamos aqui para ajudar você. Em que posso te auxiliar hoje?`,
-        transferToHuman: false
-      },
-      'saudacao': {
-        text: welcomeMessage,
-        transferToHuman: false
-      }
-    };
-
-    return responses[productGroup] || {
-      text: `Olá! Obrigado por entrar em contato conosco. Sobre qual produto ou solução você busca atendimento?`,
-      transferToHuman: false
-    };
 
   } catch (error) {
     console.error('Error generating specialized response:', error);
