@@ -1,205 +1,203 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-);
-
-const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY');
-
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     const { message, currentProductGroup, conversationId } = await req.json();
-    
-    console.log(`Classifying intent for conversation: ${conversationId}`);
-    console.log(`Current product group: ${currentProductGroup}`);
-    console.log(`Message to classify: ${message}`);
 
-    // Prompt exato do Dify fornecido pelo usuário
-    const classificationPrompt = `Você é um agente classificador de intenção da Drystore. Sua missão é analisar a nova mensagem do cliente e identificar corretamente o grupo de produto ou intenção dela. Use apenas o conteúdo da nova mensagem, combinado com o valor atual da variável product_group_atual.
+    if (!message) {
+      throw new Error('Message is required');
+    }
 
----
+    console.log('Classifying message:', message);
 
-⚠️ VALOR ATUAL DA VARIÁVEL:  
-product_group_atual: ${currentProductGroup || ''}
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
----
+    // Get classifier agent configuration
+    const { data: classifierAgent, error: agentError } = await supabase
+      .from('agent_prompts')
+      .select('*, agent_prompt_steps(*)')
+      .eq('agent_type', 'classifier')
+      .eq('is_active', true)
+      .single();
 
-📩 NOVA MENSAGEM DO CLIENTE:  
-${message}
+    if (agentError || !classifierAgent) {
+      console.error('Failed to load classifier agent:', agentError);
+      throw new Error('Classifier agent not configured');
+    }
 
----
+    // Get the classification prompt from the database
+    const classificationStep = classifierAgent.agent_prompt_steps.find(
+      (step: any) => step.step_key === 'classification'
+    );
 
-REGRAS DE CLASSIFICAÇÃO:
+    if (!classificationStep) {
+      throw new Error('Classification prompt not found');
+    }
 
-1. Se product_group_atual estiver em branco, ou for igual a **"Saudação"** ou **"Institucional"**, você deve analisar a nova mensagem e **classificar conforme as regras abaixo**.  
-Se encontrar uma intenção clara de produto ou serviço, defina o novo valor.
+    // Replace variables in the prompt
+    const classificationPrompt = classificationStep.prompt_template
+      .replace('{{message}}', message)
+      .replace('{{current_product_group}}', currentProductGroup || '');
 
-2. Se product_group_atual for diferente de "Saudação" ou "Institucional" (ou seja, já está definido com um grupo de produto), e a nova mensagem **não contiver nenhuma informação clara sobre outra categoria**, então:  
-→ **Mantenha o valor anterior e repita ele como resposta.**
+    // Add knowledge base if available
+    const fullPrompt = classifierAgent.knowledge_base 
+      ? `${classifierAgent.knowledge_base}\n\n${classificationPrompt}`
+      : classificationPrompt;
 
-3. Só altere o valor se a nova mensagem tiver clara menção a outra categoria de produto (diferente da atual).
+    // Get appropriate API key based on configured LLM
+    let apiKey = '';
+    let apiUrl = '';
+    let headers = {};
+    let requestBody = {};
 
----
-
-VALORES PERMITIDOS PARA product_group:
-
-1. Saudação  
-"Oi", "Olá", "Bom dia", "Boa tarde", "Boa noite"  
-→ product_group: Saudação  
-(*Atenção: Se vier com nome ou conteúdo adicional, não classifique como Saudação.*)
-
-2. Institucional  
-Perguntas sobre a empresa: "Onde fica?", "Quem são vocês?"  
-→ product_group: Institucional
-
-3. Drywall e Divisórias  
-"placa", "chapa", "painel", "parede", "fita", etc.  
-→ product_group: Drywall e Divisórias
-
-4. Telha Shingle  
-"telha", "telhado", "shingle", "telhado dos sonhos", etc.  
-→ product_group: Telha Shingle
-
-5. Energia Solar e Backup  
-"energia solar", "painel solar", "bateria solar", "backup de energia", "energia quando falta", etc.  
-→ product_group: Energia Solar e Backup
-
-6. Steel Frame  
-"steel frame", "construção em steel frame", etc.  
-→ product_group: Steel Frame
-
-7. Verga Fibra  
-"fibra de vidro", "verga fibra", etc.  
-→ product_group: Verga Fibra
-
-8. Acabamentos  
-"tinta", "textura", "rodapé", "santa luzia", etc.  
-→ product_group: Acabamentos
-
-9. Ferramentas  
-"parafusadeira", "furadeira", "serra", "bit", "bateria", "Makita", etc.  
-(*⚠️ Se "bateria" estiver junto com marcas ou dados técnicos, classifique como Ferramentas*)  
-→ product_group: Ferramentas
-
-10. Forros  
-"forro", "forros"  
-→ product_group: Forros
-
-11. Pisos  
-"piso", "mantas", "carpete"  
-→ product_group: Pisos
-
----
-
-❌ Quando **NÃO alterar o valor**:
-
-- Se a nova mensagem for genérica (ex: "quero um orçamento", "me passa seu WhatsApp").
-- Se não mencionar produto ou empresa.
-- Se for apenas dados pessoais ou nome ("sou João", "meu número é 119...")
-
-→ Nesses casos, **repita o valor anterior de product_group_atual**, exceto se for "Saudação" ou "Institucional".
-
----
-
-✅ FORMATO DE RESPOSTA:
-
-Responda **apenas com o valor da variável product_group**, sem tags, sem texto extra.
-
-Se for manter o valor anterior, repita ele.  
-Se identificar uma nova categoria clara, envie ela.  
-Se o valor anterior for "Saudação" ou "Institucional" e a nova mensagem não trouxer nada útil, envie **vazio**.`;
-
-    // Chamar Anthropic API
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
+    if (classifierAgent.llm_model.startsWith('claude')) {
+      apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+      if (!apiKey) throw new Error('Anthropic API key not configured');
+      
+      apiUrl = 'https://api.anthropic.com/v1/messages';
+      headers = {
         'Content-Type': 'application/json',
-        'x-api-key': anthropicApiKey,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 100,
-        messages: [
-          {
-            role: 'user',
-            content: classificationPrompt
-          }
-        ]
-      })
+      };
+      requestBody = {
+        model: classifierAgent.llm_model,
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: fullPrompt }]
+      };
+    } else if (classifierAgent.llm_model.startsWith('gpt')) {
+      apiKey = Deno.env.get('OPENAI_API_KEY');
+      if (!apiKey) throw new Error('OpenAI API key not configured');
+      
+      apiUrl = 'https://api.openai.com/v1/chat/completions';
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      };
+      requestBody = {
+        model: classifierAgent.llm_model,
+        messages: [{ role: 'user', content: fullPrompt }],
+        max_tokens: 1000
+      };
+    } else if (classifierAgent.llm_model.startsWith('grok')) {
+      apiKey = Deno.env.get('XAI_API_KEY');
+      if (!apiKey) throw new Error('xAI API key not configured');
+      
+      apiUrl = 'https://api.x.ai/v1/chat/completions';
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      };
+      requestBody = {
+        model: classifierAgent.llm_model,
+        messages: [{ role: 'user', content: fullPrompt }],
+        max_tokens: 1000
+      };
+    } else {
+      throw new Error(`Unsupported LLM model: ${classifierAgent.llm_model}`);
+    }
+
+    // Call the configured LLM API
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
-      throw new Error(`Anthropic API error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('LLM API error:', errorText);
+      throw new Error(`LLM API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const classifiedProductGroup = data.content[0].text.trim();
+    
+    // Extract classification based on LLM type
+    let classification = '';
+    if (classifierAgent.llm_model.startsWith('claude')) {
+      classification = data.content[0].text.trim().toLowerCase();
+    } else if (classifierAgent.llm_model.startsWith('gpt') || classifierAgent.llm_model.startsWith('grok')) {
+      classification = data.choices[0].message.content.trim().toLowerCase();
+    }
 
-    console.log(`Classification result: ${classifiedProductGroup}`);
+    console.log(`Classification result: ${classification}`);
 
-    // Mapear nomes do Dify para valores do banco
-    const productGroupMapping = {
-      'Saudação': 'saudacao',
-      'Institucional': 'institucional',
-      'Drywall e Divisórias': 'drywall_divisorias',
-      'Telha Shingle': 'telha_shingle',
-      'Energia Solar e Backup': 'energia_solar',
-      'Steel Frame': 'steel_frame',
-      'Verga Fibra': 'acabamentos', // Mapeado para acabamentos
-      'Acabamentos': 'acabamentos',
-      'Ferramentas': 'ferramentas',
-      'Forros': 'forros',
-      'Pisos': 'pisos'
+    // Mapear nomes para valores do banco
+    const productGroupMapping: Record<string, string> = {
+      'saudacao': 'saudacao',
+      'institucional': 'institucional',
+      'drywall': 'drywall_divisorias',
+      'drywall_divisorias': 'drywall_divisorias',
+      'telha_shingle': 'telha_shingle',
+      'telha': 'telha_shingle',
+      'energia_solar': 'energia_solar',
+      'energia solar': 'energia_solar',
+      'steel_frame': 'steel_frame',
+      'steel frame': 'steel_frame',
+      'acabamentos': 'acabamentos',
+      'ferramentas': 'ferramentas',
+      'forros': 'forros',
+      'pisos': 'pisos',
+      'indefinido': 'indefinido'
     };
 
-    const finalProductGroup = productGroupMapping[classifiedProductGroup] || 
-                             (classifiedProductGroup.toLowerCase() === 'vazio' ? 'indefinido' : 'indefinido');
+    const finalProductGroup = productGroupMapping[classification] || 'indefinido';
 
     // Calcular confidence score baseado na clareza da classificação
     let confidenceScore = 0.8;
-    if (classifiedProductGroup === '' || classifiedProductGroup.toLowerCase() === 'vazio') {
+    if (classification === '' || classification === 'indefinido') {
       confidenceScore = 0.1;
-    } else if (classifiedProductGroup === currentProductGroup) {
+    } else if (classification === currentProductGroup) {
       confidenceScore = 0.9; // Alta confiança quando mantém categoria
     }
 
     // Salvar log de classificação
-    await supabase
-      .from('classification_logs')
-      .insert({
-        conversation_id: conversationId,
-        message_text: message,
-        classified_category: finalProductGroup,
-        confidence_score: confidenceScore,
-        status: 'success',
-        metadata: {
-          current_product_group: currentProductGroup,
-          anthropic_response: classifiedProductGroup,
-          mapped_category: finalProductGroup
-        }
-      });
+    if (conversationId) {
+      await supabase
+        .from('classification_logs')
+        .insert({
+          conversation_id: conversationId,
+          message_text: message,
+          classified_category: finalProductGroup,
+          confidence_score: confidenceScore,
+          status: 'success',
+          metadata: {
+            current_product_group: currentProductGroup,
+            llm_response: classification,
+            mapped_category: finalProductGroup,
+            llm_model: classifierAgent.llm_model
+          }
+        });
+    }
 
     return new Response(JSON.stringify({
       productGroup: finalProductGroup,
       confidence: confidenceScore,
-      rawClassification: classifiedProductGroup
+      rawClassification: classification
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     console.error('Error classifying intent:', error);
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
     
     await supabase.from('system_logs').insert({
       level: 'error',
@@ -208,7 +206,6 @@ Se o valor anterior for "Saudação" ou "Institucional" e a nova mensagem não t
       data: { error: error.message }
     });
 
-    // Fallback para classificação anterior
     return new Response(JSON.stringify({
       productGroup: 'indefinido',
       confidence: 0.0,
