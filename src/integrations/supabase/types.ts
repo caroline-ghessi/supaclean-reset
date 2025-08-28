@@ -17,6 +17,7 @@ export type Database = {
       agent_knowledge_files: {
         Row: {
           agent_category: Database["public"]["Enums"]["product_category"]
+          content_embedding: string | null
           created_at: string
           extracted_content: string | null
           file_name: string
@@ -31,6 +32,7 @@ export type Database = {
         }
         Insert: {
           agent_category: Database["public"]["Enums"]["product_category"]
+          content_embedding?: string | null
           created_at?: string
           extracted_content?: string | null
           file_name: string
@@ -45,6 +47,7 @@ export type Database = {
         }
         Update: {
           agent_category?: Database["public"]["Enums"]["product_category"]
+          content_embedding?: string | null
           created_at?: string
           extracted_content?: string | null
           file_name?: string
@@ -397,6 +400,53 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_chunks: {
+        Row: {
+          agent_category: Database["public"]["Enums"]["product_category"]
+          chunk_index: number
+          content: string
+          content_embedding: string | null
+          created_at: string | null
+          file_id: string
+          id: string
+          metadata: Json | null
+          token_count: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agent_category: Database["public"]["Enums"]["product_category"]
+          chunk_index: number
+          content: string
+          content_embedding?: string | null
+          created_at?: string | null
+          file_id: string
+          id?: string
+          metadata?: Json | null
+          token_count?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agent_category?: Database["public"]["Enums"]["product_category"]
+          chunk_index?: number
+          content?: string
+          content_embedding?: string | null
+          created_at?: string | null
+          file_id?: string
+          id?: string
+          metadata?: Json | null
+          token_count?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "agent_knowledge_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_buffers: {
         Row: {
           buffer_started_at: string | null
@@ -681,7 +731,129 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      binary_quantize: {
+        Args: { "": string } | { "": unknown }
+        Returns: unknown
+      }
+      halfvec_avg: {
+        Args: { "": number[] }
+        Returns: unknown
+      }
+      halfvec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      halfvec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      halfvec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      hnsw_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnsw_sparsevec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      hnswhandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_bit_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflat_halfvec_support: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      ivfflathandler: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      l2_norm: {
+        Args: { "": unknown } | { "": unknown }
+        Returns: number
+      }
+      l2_normalize: {
+        Args: { "": string } | { "": unknown } | { "": unknown }
+        Returns: string
+      }
+      search_knowledge_chunks: {
+        Args: {
+          max_results?: number
+          query_embedding: string
+          similarity_threshold?: number
+          target_agent_category: Database["public"]["Enums"]["product_category"]
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          file_name: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
+      search_knowledge_files: {
+        Args: {
+          max_results?: number
+          query_embedding: string
+          similarity_threshold?: number
+          target_agent_category: Database["public"]["Enums"]["product_category"]
+        }
+        Returns: {
+          content: string
+          file_name: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
+      sparsevec_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      sparsevec_send: {
+        Args: { "": unknown }
+        Returns: string
+      }
+      sparsevec_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
+      vector_avg: {
+        Args: { "": number[] }
+        Returns: string
+      }
+      vector_dims: {
+        Args: { "": string } | { "": unknown }
+        Returns: number
+      }
+      vector_norm: {
+        Args: { "": string }
+        Returns: number
+      }
+      vector_out: {
+        Args: { "": string }
+        Returns: unknown
+      }
+      vector_send: {
+        Args: { "": string }
+        Returns: string
+      }
+      vector_typmod_in: {
+        Args: { "": unknown[] }
+        Returns: number
+      }
     }
     Enums: {
       conversation_status:
