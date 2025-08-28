@@ -12,8 +12,9 @@ import { TestSection } from '@/components/bot/TestSection';
 import { MasterAgentSection } from '@/components/bot/MasterAgentSection';
 import { ClassificationLogsSection } from '@/components/bot/ClassificationLogsSection';
 import { ClassificationStats } from '@/components/bot/ClassificationStats';
+import { RAGSection } from '@/components/bot/RAGSection';
 
-type ActiveTab = 'overview' | 'agents' | 'llm' | 'test';
+type ActiveTab = 'overview' | 'agents' | 'llm' | 'rag' | 'test';
 
 interface TabButtonProps {
   active: boolean;
@@ -83,6 +84,12 @@ export default function BotPage() {
                 label="Modelos IA"
               />
               <TabButton
+                active={activeTab === 'rag'}
+                onClick={() => setActiveTab('rag')}
+                icon={<Database className="w-4 h-4" />}
+                label="Sistema RAG"
+              />
+              <TabButton
                 active={activeTab === 'test'}
                 onClick={() => setActiveTab('test')}
                 icon={<TestTube className="w-4 h-4" />}
@@ -124,6 +131,7 @@ export default function BotPage() {
           </div>
         )}
         {activeTab === 'llm' && <LLMSection />}
+        {activeTab === 'rag' && <RAGSection />}
         {activeTab === 'test' && <TestSection />}
       </div>
     </div>
