@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_knowledge_files: {
+        Row: {
+          agent_category: Database["public"]["Enums"]["product_category"]
+          created_at: string
+          extracted_content: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id: string
+          metadata: Json | null
+          processed_at: string | null
+          processing_status: string | null
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          agent_category: Database["public"]["Enums"]["product_category"]
+          created_at?: string
+          extracted_content?: string | null
+          file_name: string
+          file_size: number
+          file_type: string
+          id?: string
+          metadata?: Json | null
+          processed_at?: string | null
+          processing_status?: string | null
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          agent_category?: Database["public"]["Enums"]["product_category"]
+          created_at?: string
+          extracted_content?: string | null
+          file_name?: string
+          file_size?: number
+          file_type?: string
+          id?: string
+          metadata?: Json | null
+          processed_at?: string | null
+          processing_status?: string | null
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_prompt_history: {
         Row: {
           agent_prompt_id: string | null

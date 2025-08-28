@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAgentPrompt, useUpdateAgentPrompt } from '@/hooks/useAgentPrompts';
 import { ProductCategory } from '@/types/conversation.types';
 import { toast } from '@/hooks/use-toast';
+import { KnowledgeBaseManager } from './KnowledgeBaseManager';
 
 interface EnhancedPromptEditorProps {
   selectedAgent: string;
@@ -30,7 +31,7 @@ const LLM_OPTIONS = [
 ];
 
 export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromptEditorProps) {
-  const [activeTab, setActiveTab] = useState<'system' | 'knowledge' | 'test'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'knowledge' | 'settings' | 'test'>('system');
   
   // Para agentes espiões, usar uma categoria específica para buscar no banco
   const queryCategory = agentType === 'classifier' ? 'saudacao' : 
@@ -162,12 +163,16 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
 
       <CardContent>
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="system" className="flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
               Prompt Principal
             </TabsTrigger>
             <TabsTrigger value="knowledge" className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Base de Conhecimento
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
               <Database className="w-4 h-4" />
               Configurações
             </TabsTrigger>
@@ -230,6 +235,10 @@ Sempre seja amigável, profissional e prestativo.`
           </TabsContent>
 
           <TabsContent value="knowledge" className="space-y-6">
+            <KnowledgeBaseManager agentCategory={selectedAgent as ProductCategory} />
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-4">
                 <Label htmlFor="llm-select">Modelo de IA (LLM)</Label>
