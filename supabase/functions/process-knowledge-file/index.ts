@@ -1,7 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getDocument } from 'https://deno.land/x/pdfjs@2.11.338/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -187,61 +186,26 @@ function isTextReadable(text: string): boolean {
   return readabilityRatio > 0.7;
 }
 
-// Advanced PDF text extraction using PDF.js
-async function extractPDFTextAdvanced(buffer: ArrayBuffer): Promise<string> {
+// Enhanced PDF text extraction using improved pattern matching
+async function extractPDFTextEnhanced(buffer: ArrayBuffer): Promise<string> {
   try {
-    console.log('📄 Extracting PDF text using PDF.js library...');
-    
-    const uint8Array = new Uint8Array(buffer);
-    const doc = await getDocument({ data: uint8Array }).promise;
-    
-    let fullText = '';
-    const numPages = doc.numPages;
-    console.log(`📑 PDF has ${numPages} pages`);
-    
-    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-      const page = await doc.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      
-      // Combine all text items from the page
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      
-      fullText += pageText + '\n';
-      
-      if (pageNum % 5 === 0) {
-        console.log(`📄 Processed ${pageNum}/${numPages} pages...`);
-      }
-    }
-    
-    // Clean up extracted text
-    fullText = fullText
-      .replace(/\s+/g, ' ') // Normalize whitespace
-      .trim();
-    
-    console.log(`✅ Successfully extracted ${fullText.length} characters using PDF.js`);
-    return fullText;
-  } catch (error) {
-    console.error('PDF.js extraction failed:', error);
-    throw new Error(`Advanced PDF extraction failed: ${error.message}`);
-  }
-}
-
-// Fallback PDF text extraction using pattern matching (improved)
-async function extractPDFTextFallback(buffer: ArrayBuffer): Promise<string> {
-  try {
-    console.log('📄 Using fallback PDF extraction method...');
+    console.log('📄 Using enhanced PDF extraction method...');
     const uint8Array = new Uint8Array(buffer);
     const text = new TextDecoder('utf-8', { fatal: false }).decode(uint8Array);
     
-    // Look for stream objects containing text
-    const streamPattern = /stream\s*([\s\S]*?)\s*endstream/g;
     let extractedText = '';
+    
+    // Strategy 1: Look for stream objects containing text
+    const streamPattern = /stream\s*([\s\S]*?)\s*endstream/g;
     let match;
     
     while ((match = streamPattern.exec(text)) !== null) {
       const streamContent = match[1];
+      
+      // Try to decompress if it looks like compressed content
+      if (streamContent.includes('FlateDecode') || streamContent.includes('/Filter')) {
+        continue; // Skip compressed streams for now
+      }
       
       // Extract readable text sequences from stream
       const readableText = streamContent.match(/[A-Za-z\u00C0-\u017F][A-Za-z0-9\u00C0-\u017F\s.,;:!?\-()]{5,}/g);
@@ -250,23 +214,85 @@ async function extractPDFTextFallback(buffer: ArrayBuffer): Promise<string> {
       }
     }
     
-    // Also try extracting from text between parentheses (common PDF format)
+    // Strategy 2: Extract text between parentheses (common PDF format)
     const textInParentheses = text.match(/\(([^)]{3,})\)/g);
     if (textInParentheses) {
       const cleanParenthesesText = textInParentheses
         .map(match => match.slice(1, -1)) // Remove parentheses
-        .filter(str => str.length > 2)
+        .filter(str => str.length > 2 && /[A-Za-z]/.test(str)) // Must contain letters
         .join(' ');
       extractedText += ' ' + cleanParenthesesText;
     }
     
+    // Strategy 3: Look for text operators (Tj, TJ)
+    const tjPattern = /\s+Tj\s*|TJ\s*/g;
+    const tjSections = text.split(tjPattern);
+    for (const section of tjSections) {
+      const textMatch = section.match(/\(([^)]+)\)/g);
+      if (textMatch) {
+        const sectionText = textMatch
+          .map(m => m.slice(1, -1))
+          .filter(str => str.length > 1 && /[A-Za-z]/.test(str))
+          .join(' ');
+        extractedText += ' ' + sectionText;
+      }
+    }
+    
+    // Strategy 4: Look for text between BT (Begin Text) and ET (End Text) markers
+    const btEtPattern = /BT\s*([\s\S]*?)\s*ET/g;
+    while ((match = btEtPattern.exec(text)) !== null) {
+      const textContent = match[1];
+      const textInBounds = textContent.match(/\(([^)]+)\)/g);
+      if (textInBounds) {
+        const boundedText = textInBounds
+          .map(m => m.slice(1, -1))
+          .filter(str => str.length > 1 && /[A-Za-z]/.test(str))
+          .join(' ');
+        extractedText += ' ' + boundedText;
+      }
+    }
+    
     // Clean up the extracted text
     extractedText = extractedText
+      .replace(/\\[rnt]/g, ' ') // Remove escape characters
       .replace(/[^\w\s\u00C0-\u017F.,;:!?\-()]/g, ' ') // Keep only readable characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
     
-    console.log(`✅ Fallback extraction yielded ${extractedText.length} characters`);
+    console.log(`✅ Enhanced extraction yielded ${extractedText.length} characters`);
+    return extractedText;
+  } catch (error) {
+    console.error('Enhanced PDF extraction failed:', error);
+    throw new Error(`Enhanced PDF extraction failed: ${error.message}`);
+  }
+}
+
+// Fallback PDF text extraction using pattern matching (basic)
+async function extractPDFTextFallback(buffer: ArrayBuffer): Promise<string> {
+  try {
+    console.log('📄 Using basic fallback PDF extraction...');
+    const uint8Array = new Uint8Array(buffer);
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(uint8Array);
+    
+    // Simple approach: look for any sequences of readable text
+    const readableSequences = text.match(/[A-Za-z\u00C0-\u017F][A-Za-z0-9\u00C0-\u017F\s.,;:!?\-()]{10,}/g);
+    
+    if (!readableSequences || readableSequences.length === 0) {
+      throw new Error('No readable text sequences found');
+    }
+    
+    let extractedText = readableSequences
+      .filter(seq => seq.length > 10) // Filter out very short sequences
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // Limit to reasonable size for fallback
+    if (extractedText.length > 10000) {
+      extractedText = extractedText.substring(0, 10000) + '...';
+    }
+    
+    console.log(`✅ Basic fallback extraction yielded ${extractedText.length} characters`);
     return extractedText;
   } catch (error) {
     console.error('Fallback PDF extraction failed:', error);
@@ -277,9 +303,12 @@ async function extractPDFTextFallback(buffer: ArrayBuffer): Promise<string> {
 // Main PDF text extraction with multiple strategies
 async function extractPDFText(buffer: ArrayBuffer): Promise<string> {
   const strategies = [
-    { name: 'PDF.js', func: extractPDFTextAdvanced },
+    { name: 'Enhanced', func: extractPDFTextEnhanced },
     { name: 'Fallback', func: extractPDFTextFallback }
   ];
+  
+  let bestResult = '';
+  let bestScore = 0;
   
   for (const strategy of strategies) {
     try {
@@ -288,8 +317,13 @@ async function extractPDFText(buffer: ArrayBuffer): Promise<string> {
       
       // Validate if the extracted text is readable
       if (isTextReadable(extractedText)) {
-        console.log(`✅ ${strategy.name} extraction successful and readable`);
-        return extractedText;
+        const score = extractedText.length; // Simple scoring by length
+        console.log(`✅ ${strategy.name} extraction successful and readable (score: ${score})`);
+        
+        if (score > bestScore) {
+          bestResult = extractedText;
+          bestScore = score;
+        }
       } else {
         console.warn(`⚠️ ${strategy.name} extraction produced unreadable text`);
         console.log(`First 200 chars: ${extractedText.substring(0, 200)}`);
@@ -299,7 +333,12 @@ async function extractPDFText(buffer: ArrayBuffer): Promise<string> {
     }
   }
   
-  throw new Error('All PDF extraction strategies failed to produce readable text');
+  if (!bestResult) {
+    throw new Error('All PDF extraction strategies failed to produce readable text');
+  }
+  
+  console.log(`🎯 Using best extraction result: ${bestScore} characters`);
+  return bestResult;
 }
 
 // PDF Processing - Extract text then clean with LLM
