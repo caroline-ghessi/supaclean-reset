@@ -98,34 +98,43 @@ export type Database = {
       }
       agent_prompts: {
         Row: {
+          agent_type: string | null
           category: Database["public"]["Enums"]["product_category"]
           created_at: string | null
           created_by: string | null
           description: string | null
           id: string
           is_active: boolean | null
+          knowledge_base: string | null
+          llm_model: string | null
           name: string
           updated_at: string | null
           version: number | null
         }
         Insert: {
+          agent_type?: string | null
           category: Database["public"]["Enums"]["product_category"]
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          knowledge_base?: string | null
+          llm_model?: string | null
           name: string
           updated_at?: string | null
           version?: number | null
         }
         Update: {
+          agent_type?: string | null
           category?: Database["public"]["Enums"]["product_category"]
           created_at?: string | null
           created_by?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
+          knowledge_base?: string | null
+          llm_model?: string | null
           name?: string
           updated_at?: string | null
           version?: number | null
