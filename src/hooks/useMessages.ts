@@ -56,7 +56,8 @@ export function useCreateMessage() {
         throw error;
       }
       
-      // Se for mensagem de agente, enviar para WhatsApp
+      // Se for mensagem de agente (manual), enviar para WhatsApp
+      // Mensagens do bot são enviadas pelo process-message-buffer
       if (message.sender_type === 'agent') {
         try {
           // Buscar dados da conversa para obter o número do WhatsApp
