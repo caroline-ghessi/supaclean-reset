@@ -113,7 +113,7 @@ export function MasterAgentSection() {
                   active={activeTab === 'keywords'}
                   onClick={() => setActiveTab('keywords')}
                   icon={<Tag className="w-4 h-4" />}
-                  label="Palavras-chave"
+                  label="Palavras-chave (84)"
                 />
                 <TabButton
                   active={activeTab === 'flows'}
