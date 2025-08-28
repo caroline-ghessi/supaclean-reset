@@ -3,6 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { ProductCategory } from '@/types/conversation.types';
 import { toast } from '@/hooks/use-toast';
 
+// Function to sanitize filename for storage
+function sanitizeFileName(fileName: string): string {
+  return fileName
+    .normalize('NFD') // Decompose accented characters
+    .replace(/[\u0300-\u036f]/g, '') // Remove accent marks
+    .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace special chars with underscore
+    .replace(/_+/g, '_') // Replace multiple underscores with single
+    .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
+}
+
 export interface KnowledgeFile {
   id: string;
   agent_category: ProductCategory;
@@ -47,8 +57,9 @@ export function useUploadKnowledgeFile() {
     }) => {
       console.log(`📤 Uploading file: ${file.name} for agent: ${agentCategory}`);
 
-      // Upload to storage
-      const filePath = `${agentCategory}/${Date.now()}-${file.name}`;
+      // Upload to storage with sanitized filename
+      const sanitizedFileName = sanitizeFileName(file.name);
+      const filePath = `${agentCategory}/${Date.now()}-${sanitizedFileName}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('agent-knowledge')
         .upload(filePath, file);
