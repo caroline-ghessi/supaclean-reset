@@ -11,6 +11,7 @@ import { ConversationsPage } from "@/pages/Conversations";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BotPage from "@/pages/Bot";
 import AuthPage from "@/pages/Auth";
+import LeadsQuentes from "@/pages/LeadsQuentes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
@@ -57,7 +58,7 @@ const App: React.FC = () => {
                   </ProtectedRoute>
                 }>
                   <Route index element={<Dashboard />} />
-                  <Route path="/leads-quentes" element={<div className="p-6">Leads Quentes - Em desenvolvimento</div>} />
+                  <Route path="/leads-quentes" element={<LeadsQuentes />} />
                   <Route path="/bot" element={<BotPage />} />
                   <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />
                   <Route path="/atendentes" element={<div className="p-6">Atendentes - Em desenvolvimento</div>} />
