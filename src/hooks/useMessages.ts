@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase, logSystem } from '@/lib/supabase';
 import { Message } from '@/types/conversation.types';
 import { useToast } from '@/hooks/use-toast';
+import { whatsappService } from '@/services/whatsapp/whatsapp-business.service';
 
 export function useMessages(conversationId: string) {
   return useQuery({
@@ -53,6 +54,51 @@ export function useCreateMessage() {
       if (error) {
         await logSystem('error', 'useCreateMessage', 'Failed to create message', error);
         throw error;
+      }
+      
+      // Se for mensagem de agente, enviar para WhatsApp
+      if (message.sender_type === 'agent') {
+        try {
+          // Buscar dados da conversa para obter o número do WhatsApp
+          const { data: conversation, error: convError } = await supabase
+            .from('conversations')
+            .select('whatsapp_number')
+            .eq('id', message.conversation_id)
+            .single();
+          
+          if (convError || !conversation?.whatsapp_number) {
+            throw new Error('Número do WhatsApp não encontrado');
+          }
+
+          // Enviar mensagem via WhatsApp
+          await whatsappService.sendTextMessage(
+            conversation.whatsapp_number,
+            message.content
+          );
+
+          // Marcar como entregue
+          await supabase
+            .from('messages')
+            .update({ 
+              delivered_at: new Date().toISOString()
+            })
+            .eq('id', data.id);
+
+          await logSystem('info', 'useCreateMessage', 'Agent message sent to WhatsApp', {
+            messageId: data.id,
+            conversationId: message.conversation_id,
+            whatsappNumber: conversation.whatsapp_number
+          });
+
+        } catch (whatsappError) {
+          await logSystem('error', 'useCreateMessage', 'Failed to send agent message to WhatsApp', {
+            messageId: data.id,
+            error: whatsappError instanceof Error ? whatsappError.message : 'Unknown error'
+          });
+          
+          // Não fazer throw aqui para não quebrar a UX - mensagem foi salva no banco
+          console.error('Erro ao enviar para WhatsApp:', whatsappError);
+        }
       }
       
       // Atualizar last_message_at da conversa
