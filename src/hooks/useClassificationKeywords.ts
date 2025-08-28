@@ -20,7 +20,8 @@ export function useClassificationKeywords() {
         .from('classification_keywords')
         .select('*')
         .eq('is_active', true)
-        .order('category, weight DESC');
+        .order('category')
+        .order('weight', { ascending: false });
 
       if (error) throw error;
       return data as ClassificationKeyword[];
@@ -37,7 +38,7 @@ export function useClassificationKeywordsByCategory(category: string) {
         .select('*')
         .eq('category', category)
         .eq('is_active', true)
-        .order('weight DESC');
+        .order('weight', { ascending: false });
 
       if (error) throw error;
       return data as ClassificationKeyword[];
