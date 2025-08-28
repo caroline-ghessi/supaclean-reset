@@ -52,50 +52,6 @@ export type Database = {
           },
         ]
       }
-      agent_prompt_steps: {
-        Row: {
-          agent_prompt_id: string | null
-          condition_field: string | null
-          id: string
-          metadata: Json | null
-          next_step: string | null
-          prompt_template: string
-          quick_replies: Json | null
-          step_key: string
-          step_order: number
-        }
-        Insert: {
-          agent_prompt_id?: string | null
-          condition_field?: string | null
-          id?: string
-          metadata?: Json | null
-          next_step?: string | null
-          prompt_template: string
-          quick_replies?: Json | null
-          step_key: string
-          step_order: number
-        }
-        Update: {
-          agent_prompt_id?: string | null
-          condition_field?: string | null
-          id?: string
-          metadata?: Json | null
-          next_step?: string | null
-          prompt_template?: string
-          quick_replies?: Json | null
-          step_key?: string
-          step_order?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "agent_prompt_steps_agent_prompt_id_fkey"
-            columns: ["agent_prompt_id"]
-            isOneToOne: false
-            referencedRelation: "agent_prompts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       agent_prompts: {
         Row: {
           agent_type: string | null

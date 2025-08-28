@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -326,7 +326,7 @@ Resposta: [sua resposta aqui baseada no contexto]`}
               />
               <div className="flex justify-between items-center mt-2">
                 <p className="text-xs text-muted-foreground">
-                  Use variáveis como: {{customer_name}}, {{energy_bill_value}}, {{lead_score}}, {{current_date}}
+                  Use variáveis como: {'{{customer_name}}'}, {'{{energy_bill_value}}'}, {'{{lead_score}}'}, {'{{current_date}}'}
                 </p>
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm">
