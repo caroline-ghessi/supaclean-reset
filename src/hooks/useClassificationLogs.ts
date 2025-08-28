@@ -61,14 +61,14 @@ export function useClassificationStats() {
         .from('classification_logs')
         .select('*')
         .gte('created_at', `${today}T00:00:00.000Z`)
-        .lt('created_at', `${today}T23:59:59.999Z`);
+        .lte('created_at', `${today}T23:59:59.999Z`);
 
       if (error) throw error;
 
       const totalClassifications = todayLogs.length;
       const successfulClassifications = todayLogs.filter(log => log.status === 'success').length;
-      const unclassified = todayLogs.filter(log => !log.classified_category || log.confidence_score < 70).length;
-      const averageTime = todayLogs.reduce((sum, log) => sum + (log.processing_time_ms || 0), 0) / totalClassifications;
+      const unclassified = todayLogs.filter(log => !log.classified_category || log.classified_category === 'indefinido' || (log.confidence_score && log.confidence_score < 70)).length;
+      const averageTime = totalClassifications > 0 ? todayLogs.reduce((sum, log) => sum + (log.processing_time_ms || 0), 0) / totalClassifications : 0;
       const accuracyRate = totalClassifications > 0 ? (successfulClassifications / totalClassifications) * 100 : 0;
 
       return {
