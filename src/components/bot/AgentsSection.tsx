@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAgentPrompts, usePromptSteps } from '@/hooks/useAgentPrompts';
+import { useAgentPrompts } from '@/hooks/useAgentPrompts';
 import { PromptEditor } from './PromptEditor';
 import { SpyAgentCard } from './SpyAgentCard';
 import { EnhancedPromptEditor } from './EnhancedPromptEditor';

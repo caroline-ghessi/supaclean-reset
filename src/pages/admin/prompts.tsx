@@ -6,20 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import { Save, Plus, History, TestTube, Copy, Trash, Edit3 } from 'lucide-react';
+import { Save, TestTube, Copy, Bot, MessageSquare, Database } from 'lucide-react';
 import { ProductCategory } from '@/types/conversation.types';
 import {
   useAgentPrompt,
-  usePromptSteps,
   usePromptVariables,
-  useUpdatePromptStep,
-  useDeletePromptStep,
-  useTestPrompt
+  useTestPrompt,
+  useUpdateAgentPrompt
 } from '@/hooks/useAgentPrompts';
+import { toast } from 'sonner';
 
 export function PromptsAdminPage() {
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory>('energia_solar');
-  const [testMode, setTestMode] = useState(false);
 
   const categories: ProductCategory[] = [
     'energia_solar',
@@ -42,25 +40,16 @@ export function PromptsAdminPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-foreground">
-                Gerenciador de Prompts do Bot
+                Gerenciador de Prompts dos Agentes
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Configure as respostas e fluxos de cada agente especializado
+                Configure o prompt principal de cada agente especializado - sem steps, apenas um prompt único
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <Button
-                variant="outline"
-                onClick={() => setTestMode(!testMode)}
-                className={testMode ? 'border-primary' : ''}
-              >
-                <TestTube className="w-4 h-4 mr-2" />
-                {testMode ? 'Modo Teste Ativo' : 'Testar Prompts'}
-              </Button>
-              <Button>
-                <Save className="w-4 h-4 mr-2" />
-                Salvar Alterações
-              </Button>
+              <Badge variant="outline" className="text-green-600 border-green-600">
+                Sistema Simplificado
+              </Badge>
             </div>
           </div>
         </div>
@@ -72,7 +61,7 @@ export function PromptsAdminPage() {
           <div className="col-span-3">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Categorias de Agentes</CardTitle>
+                <CardTitle className="text-base">Agentes Disponíveis</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="space-y-2">
@@ -103,9 +92,8 @@ export function PromptsAdminPage() {
           <div className="col-span-9">
             <Card>
               <CardContent className="p-6">
-                <PromptEditor 
+                <SimplifiedPromptEditor 
                   category={selectedCategory}
-                  testMode={testMode}
                 />
               </CardContent>
             </Card>
@@ -194,16 +182,50 @@ function VariablesList() {
   );
 }
 
-// Component: Prompt Editor
-function PromptEditor({ 
-  category, 
-  testMode 
+// Component: Simplified Prompt Editor (sem steps)
+function SimplifiedPromptEditor({ 
+  category
 }: {
   category: ProductCategory;
-  testMode: boolean;
 }) {
   const { data: agentPrompt, isLoading } = useAgentPrompt(category);
-  const { data: promptSteps } = usePromptSteps(agentPrompt?.id);
+  const updateAgentPrompt = useUpdateAgentPrompt();
+  const [isSaving, setIsSaving] = useState(false);
+  
+  const [localPrompt, setLocalPrompt] = useState('');
+  const [localLlmModel, setLocalLlmModel] = useState('claude-3-5-sonnet-20241022');
+
+  // Update local state when data loads
+  React.useEffect(() => {
+    if (agentPrompt) {
+      setLocalPrompt(agentPrompt.knowledge_base || '');
+      setLocalLlmModel(agentPrompt.llm_model || 'claude-3-5-sonnet-20241022');
+    }
+  }, [agentPrompt]);
+
+  const handleSave = async () => {
+    if (!agentPrompt) return;
+
+    setIsSaving(true);
+    try {
+      await updateAgentPrompt.mutateAsync({
+        id: agentPrompt.id,
+        knowledge_base: localPrompt,
+        llm_model: localLlmModel,
+        category: agentPrompt.category,
+        name: agentPrompt.name,
+        description: agentPrompt.description,
+        agent_type: agentPrompt.agent_type,
+      });
+      
+      toast.success('Prompt salvo com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      toast.error('Erro ao salvar o prompt');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -217,36 +239,136 @@ function PromptEditor({
     <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-bold text-foreground">
-            Configuração do Agente: {category}
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            {agentPrompt?.description || 'Configure os prompts e fluxo de conversa'}
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Bot className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground">
+              Agente: {category}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {agentPrompt?.description || 'Configure o prompt principal do agente'}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={agentPrompt?.is_active ? 'default' : 'secondary'}>
             {agentPrompt?.is_active ? 'Ativo' : 'Inativo'}
           </Badge>
-          <Badge variant="outline">
-            Versão {agentPrompt?.version || 1}
-          </Badge>
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving}
+            className="flex items-center gap-2"
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? 'Salvando...' : 'Salvar Prompt'}
+          </Button>
         </div>
       </div>
 
-      {/* Steps/Prompts */}
-      <Tabs defaultValue="steps" className="w-full">
+      {/* Tabs */}
+      <Tabs defaultValue="prompt" className="w-full">
         <TabsList>
-          <TabsTrigger value="steps">Etapas do Fluxo</TabsTrigger>
-          <TabsTrigger value="test">Testar</TabsTrigger>
+          <TabsTrigger value="prompt" className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4" />
+            Prompt Principal
+          </TabsTrigger>
+          <TabsTrigger value="config" className="flex items-center gap-2">
+            <Database className="w-4 h-4" />
+            Configurações
+          </TabsTrigger>
+          <TabsTrigger value="test" className="flex items-center gap-2">
+            <TestTube className="w-4 h-4" />
+            Testar
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="steps" className="mt-6">
-          <StepsEditor 
-            steps={promptSteps || []}
-            agentPromptId={agentPrompt?.id}
-          />
+        <TabsContent value="prompt" className="mt-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Prompt Principal do Agente
+              </label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Este é o prompt único que define todo o comportamento do agente. 
+                Não há mais steps - tudo acontece em uma única interação.
+              </p>
+              <Textarea
+                value={localPrompt}
+                onChange={(e) => setLocalPrompt(e.target.value)}
+                rows={20}
+                className="font-mono text-sm"
+                placeholder={`Exemplo para agente de ${category}:
+
+Você é um assistente especializado em ${category}.
+
+**Suas responsabilidades:**
+- Responder perguntas sobre produtos de ${category}
+- Qualificar leads coletando informações importantes
+- Fornecer orçamentos quando possível
+- Transferir para humano quando necessário
+
+**Informações sobre ${category}:**
+[Adicione aqui informações específicas do produto/serviço]
+
+**Como se comportar:**
+- Sempre seja amigável e profissional
+- Faça perguntas para entender melhor as necessidades
+- Use as variáveis disponíveis como {{customer_name}}, {{energy_bill_value}}, etc.
+- Quando tiver informações suficientes, ofereça um orçamento ou transferir para especialista
+
+**Exemplo de conversa:**
+Cliente: {{message}}
+Contexto: Nome = {{customer_name}}, Lead Score = {{lead_score}}
+
+Resposta: [sua resposta aqui baseada no contexto]`}
+              />
+              <div className="flex justify-between items-center mt-2">
+                <p className="text-xs text-muted-foreground">
+                  Use variáveis como: {{customer_name}}, {{energy_bill_value}}, {{lead_score}}, {{current_date}}
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm">
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar Template
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="config" className="mt-6">
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Modelo LLM
+              </label>
+              <select
+                value={localLlmModel}
+                onChange={(e) => setLocalLlmModel(e.target.value)}
+                className="w-full p-2 border rounded-lg"
+              >
+                <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                <option value="grok-beta">Grok Beta</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm font-medium">Categoria</p>
+                <p className="text-sm text-muted-foreground">{category}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium">Tipo</p>
+                <p className="text-sm text-muted-foreground">Especialista</p>
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="test" className="mt-6">
@@ -257,278 +379,6 @@ function PromptEditor({
         </TabsContent>
       </Tabs>
     </div>
-  );
-}
-
-// Component: Steps Editor
-function StepsEditor({ 
-  steps, 
-  agentPromptId 
-}: {
-  steps: any[];
-  agentPromptId?: string;
-}) {
-  const [newStep, setNewStep] = useState(false);
-  const updateStep = useUpdatePromptStep();
-  const deleteStep = useDeletePromptStep();
-
-  return (
-    <div className="space-y-4">
-      {/* Steps List */}
-      {steps.map((step, index) => (
-        <StepCard
-          key={step.id}
-          step={step}
-          index={index}
-          onUpdate={(data) => updateStep.mutate({ id: step.id, ...data })}
-          onDelete={() => deleteStep.mutate(step.id)}
-        />
-      ))}
-
-      {/* Add New Step */}
-      {newStep ? (
-        <NewStepForm
-          agentPromptId={agentPromptId}
-          onSave={() => setNewStep(false)}
-          onCancel={() => setNewStep(false)}
-        />
-      ) : (
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={() => setNewStep(true)}
-          disabled={!agentPromptId}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Adicionar Nova Etapa
-        </Button>
-      )}
-    </div>
-  );
-}
-
-// Component: Step Card
-function StepCard({ 
-  step, 
-  index, 
-  onUpdate, 
-  onDelete 
-}: {
-  step: any;
-  index: number;
-  onUpdate: (data: any) => void;
-  onDelete: () => void;
-}) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState(step);
-
-  const handleSave = () => {
-    onUpdate(formData);
-    setIsEditing(false);
-  };
-
-  if (isEditing) {
-    return (
-      <Card className="border-primary/50">
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Input
-                value={formData.step_key}
-                onChange={(e) => setFormData({ ...formData, step_key: e.target.value })}
-                placeholder="Chave da etapa (ex: collect_phone)"
-                className="max-w-xs"
-              />
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Ordem:</span>
-                <Input
-                  type="number"
-                  value={formData.step_order}
-                  onChange={(e) => setFormData({ ...formData, step_order: parseInt(e.target.value) })}
-                  className="w-20"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Campo Condicional (deixe vazio se sempre executar)
-              </label>
-              <Input
-                value={formData.condition_field || ''}
-                onChange={(e) => setFormData({ ...formData, condition_field: e.target.value })}
-                placeholder="Ex: project_contexts.whatsapp_confirmed"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Template do Prompt
-              </label>
-              <Textarea
-                value={formData.prompt_template}
-                onChange={(e) => setFormData({ ...formData, prompt_template: e.target.value })}
-                rows={6}
-                className="font-mono text-sm"
-                placeholder="Use {{variáveis}} para valores dinâmicos"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Suporta Markdown e variáveis como {`{{customer_name}}`}
-              </p>
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSave}>
-                Salvar Etapa
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="hover:border-primary/30 transition-colors">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <Badge variant="outline">{index + 1}</Badge>
-              <span className="font-medium">{step.step_key}</span>
-              {step.condition_field && (
-                <Badge variant="secondary" className="text-xs">
-                  Se !{step.condition_field}
-                </Badge>
-              )}
-            </div>
-            
-            <div className="text-sm text-muted-foreground mb-2">
-              {step.prompt_template.substring(0, 150)}...
-            </div>
-
-            {step.quick_replies && step.quick_replies.length > 0 && (
-              <div className="flex gap-2 flex-wrap">
-                {step.quick_replies.map((reply: string, i: number) => (
-                  <Badge key={i} variant="outline" className="text-xs">
-                    {reply}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setIsEditing(true)}
-            >
-              <Edit3 className="w-4 h-4" />
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => onDelete()}
-              className="text-destructive hover:text-destructive"
-            >
-              <Trash className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// Component: New Step Form
-function NewStepForm({ 
-  agentPromptId, 
-  onSave, 
-  onCancel 
-}: {
-  agentPromptId?: string;
-  onSave: () => void;
-  onCancel: () => void;
-}) {
-  const [formData, setFormData] = useState({
-    agent_prompt_id: agentPromptId,
-    step_key: '',
-    step_order: 1,
-    condition_field: '',
-    prompt_template: '',
-    quick_replies: []
-  });
-
-  const updateStep = useUpdatePromptStep();
-
-  const handleSave = () => {
-    updateStep.mutate(formData, {
-      onSuccess: () => {
-        onSave();
-      }
-    });
-  };
-
-  return (
-    <Card className="border-primary/50">
-      <CardContent className="p-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Input
-              value={formData.step_key}
-              onChange={(e) => setFormData({ ...formData, step_key: e.target.value })}
-              placeholder="Chave da etapa (ex: collect_phone)"
-              className="max-w-xs"
-            />
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Ordem:</span>
-              <Input
-                type="number"
-                value={formData.step_order}
-                onChange={(e) => setFormData({ ...formData, step_order: parseInt(e.target.value) })}
-                className="w-20"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Campo Condicional
-            </label>
-            <Input
-              value={formData.condition_field}
-              onChange={(e) => setFormData({ ...formData, condition_field: e.target.value })}
-              placeholder="Ex: project_contexts.whatsapp_confirmed"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Template do Prompt
-            </label>
-            <Textarea
-              value={formData.prompt_template}
-              onChange={(e) => setFormData({ ...formData, prompt_template: e.target.value })}
-              rows={6}
-              className="font-mono text-sm"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onCancel}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave}>
-              Salvar Etapa
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -619,17 +469,6 @@ function PromptTester({
                     {testPrompt.data.response}
                   </div>
                 </div>
-
-                {testPrompt.data.quickReplies && (
-                  <div>
-                    <span className="text-xs text-muted-foreground">Quick Replies:</span>
-                    <div className="mt-1 flex gap-2 flex-wrap">
-                      {testPrompt.data.quickReplies.map((reply: string, i: number) => (
-                        <Badge key={i}>{reply}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <div>
                   <span className="text-xs text-muted-foreground">Metadata:</span>

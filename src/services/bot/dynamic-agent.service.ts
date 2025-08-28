@@ -12,35 +12,25 @@ export class DynamicAgentService {
     context: ConversationWithContext
   ): Promise<AgentResponse> {
     try {
-      // 1. Load active prompt for category
+      // Load active prompt for category
       const agentPrompt = await this.loadAgentPrompt(category);
       
-      if (!agentPrompt) {
+      if (!agentPrompt || !agentPrompt.knowledge_base) {
         return this.getDefaultResponse();
       }
 
-      // 2. Load steps for this agent
-      const steps = await this.loadPromptSteps(agentPrompt.id);
-      
-      // 3. Find appropriate step based on context
-      const currentStep = this.selectStep(steps, context);
-      
-      if (!currentStep) {
-        return this.getFinalResponse(context);
-      }
-
-      // 4. Process template with context
+      // Process template with context - use knowledge_base as the main prompt
       const processedPrompt = this.processTemplate(
-        currentStep.prompt_template,
+        agentPrompt.knowledge_base,
         context
       );
 
       return {
         text: processedPrompt,
-        quickReplies: currentStep.quick_replies || [],
+        quickReplies: [],
         metadata: {
-          stepKey: currentStep.step_key,
-          nextStep: currentStep.next_step
+          agentType: agentPrompt.agent_type,
+          llmModel: agentPrompt.llm_model
         }
       };
     } catch (error) {
@@ -73,46 +63,6 @@ export class DynamicAgentService {
     return data;
   }
 
-  private async loadPromptSteps(agentPromptId: string) {
-    const { data } = await supabase
-      .from('agent_prompt_steps')
-      .select('*')
-      .eq('agent_prompt_id', agentPromptId)
-      .order('step_order', { ascending: true });
-
-    return data || [];
-  }
-
-  private selectStep(steps: any[], context: ConversationWithContext) {
-    // Find first step where condition is not met
-    for (const step of steps) {
-      if (!step.condition_field) {
-        // Step always executes
-        return step;
-      }
-
-      // Check if condition field is empty
-      const fieldValue = this.getContextValue(context, step.condition_field);
-      if (!fieldValue) {
-        return step;
-      }
-    }
-
-    return null; // All steps completed
-  }
-
-  private getContextValue(context: ConversationWithContext, fieldPath: string) {
-    // Navigate nested object path like 'project_contexts.energy_consumption'
-    const parts = fieldPath.split('.');
-    let value: any = context;
-    
-    for (const part of parts) {
-      value = value?.[part];
-      if (value === undefined) break;
-    }
-    
-    return value;
-  }
 
   private processTemplate(template: string, context: ConversationWithContext) {
     // Register Handlebars helpers
@@ -240,24 +190,20 @@ Muito obrigado! 🤝`,
       .eq('id', agentPromptId)
       .single();
 
-    const steps = await this.loadPromptSteps(agentPromptId);
-    const currentStep = this.selectStep(steps, testContext);
-
-    if (!currentStep) {
-      return this.getFinalResponse(testContext);
+    if (!agentPrompt) {
+      throw new Error('Agent prompt not found');
     }
 
     const processedPrompt = this.processTemplate(
-      currentStep.prompt_template,
+      agentPrompt.knowledge_base || '',
       testContext
     );
 
     return {
       response: processedPrompt,
-      quickReplies: currentStep.quick_replies,
       metadata: {
-        stepUsed: currentStep.step_key,
-        nextStep: currentStep.next_step,
+        agentType: agentPrompt.agent_type,
+        llmModel: agentPrompt.llm_model,
         contextUsed: testContext
       }
     };

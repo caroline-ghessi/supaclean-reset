@@ -18,7 +18,7 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { ProductCategory } from '@/types/conversation.types';
-import { useAgentPrompt, usePromptSteps } from '@/hooks/useAgentPrompts';
+import { useAgentPrompt } from '@/hooks/useAgentPrompts';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 

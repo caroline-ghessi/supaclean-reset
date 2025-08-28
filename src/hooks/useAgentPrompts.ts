@@ -39,25 +39,6 @@ export function useAgentPrompts() {
   });
 }
 
-// Hook to get prompt steps for an agent
-export function usePromptSteps(agentPromptId?: string) {
-  return useQuery({
-    queryKey: ['prompt-steps', agentPromptId],
-    queryFn: async () => {
-      if (!agentPromptId) return [];
-
-      const { data, error } = await supabase
-        .from('agent_prompt_steps')
-        .select('*')
-        .eq('agent_prompt_id', agentPromptId)
-        .order('step_order');
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!agentPromptId
-  });
-}
 
 // Hook to get prompt variables
 export function usePromptVariables() {
@@ -96,44 +77,6 @@ export function useUpdateAgentPrompt() {
   });
 }
 
-// Hook to create/update prompt step
-export function useUpdatePromptStep() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: any) => {
-      const { error } = await supabase
-        .from('agent_prompt_steps')
-        .upsert(data);
-
-      if (error) throw error;
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ 
-        queryKey: ['prompt-steps', variables.agent_prompt_id] 
-      });
-    }
-  });
-}
-
-// Hook to delete prompt step
-export function useDeletePromptStep() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (stepId: string) => {
-      const { error } = await supabase
-        .from('agent_prompt_steps')
-        .delete()
-        .eq('id', stepId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prompt-steps'] });
-    }
-  });
-}
 
 // Hook to test prompt
 export function useTestPrompt() {
