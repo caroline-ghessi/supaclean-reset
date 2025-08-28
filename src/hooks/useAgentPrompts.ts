@@ -62,17 +62,32 @@ export function useUpdateAgentPrompt() {
 
   return useMutation({
     mutationFn: async (data: any) => {
-      const { error } = await supabase
+      console.log('🔄 Saving agent prompt:', data);
+      
+      const { data: result, error } = await supabase
         .from('agent_prompts')
         .upsert({
           ...data,
           updated_at: new Date().toISOString()
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error saving prompt:', error);
+        throw error;
+      }
+
+      console.log('✅ Prompt saved successfully:', result);
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('🔄 Invalidating queries...');
+      // Invalidate both specific and general queries
+      queryClient.invalidateQueries({ queryKey: ['agent-prompt', variables.category] });
       queryClient.invalidateQueries({ queryKey: ['agent-prompts'] });
+    },
+    onError: (error) => {
+      console.error('❌ Mutation error:', error);
     }
   });
 }

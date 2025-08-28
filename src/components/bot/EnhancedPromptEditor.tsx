@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Bot, Save, Copy, Database, Zap,
   FileText, MessageSquare, Brain, Search
@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAgentPrompt, useUpdateAgentPrompt } from '@/hooks/useAgentPrompts';
 import { ProductCategory } from '@/types/conversation.types';
+import { toast } from '@/hooks/use-toast';
 
 interface EnhancedPromptEditorProps {
   selectedAgent: string;
@@ -41,38 +42,59 @@ export function EnhancedPromptEditor({ selectedAgent, agentType }: EnhancedPromp
   const updateAgentPrompt = useUpdateAgentPrompt();
 
   const [localPrompt, setLocalPrompt] = useState('');
-  const [localKnowledgeBase, setLocalKnowledgeBase] = useState('');
   const [localLlmModel, setLocalLlmModel] = useState('claude-3-5-sonnet-20241022');
   const [isSaving, setIsSaving] = useState(false);
 
   // Atualizar estados locais quando os dados carregarem
-  React.useEffect(() => {
+  useEffect(() => {
     if (agentPrompt) {
       setLocalPrompt(agentPrompt.knowledge_base || '');
-      setLocalKnowledgeBase(agentPrompt.knowledge_base || '');
       setLocalLlmModel(agentPrompt.llm_model || 'claude-3-5-sonnet-20241022');
     }
   }, [agentPrompt]);
 
   const handleSave = async () => {
-    if (!agentPrompt) return;
+    if (!agentPrompt) {
+      toast({
+        title: "Erro",
+        description: "Nenhum agente selecionado para salvar.",
+        variant: "destructive"
+      });
+      return;
+    }
 
+    console.log('🚀 Save button clicked for agent:', selectedAgent);
+    
     setIsSaving(true);
     try {
-      await updateAgentPrompt.mutateAsync({
+      const dataToSave = {
         id: agentPrompt.id,
-        knowledge_base: localPrompt, // Use localPrompt as the main prompt
+        knowledge_base: localPrompt,
         llm_model: localLlmModel,
         category: agentPrompt.category,
         name: agentPrompt.name,
         description: agentPrompt.description,
         agent_type: agentPrompt.agent_type,
+        is_active: true
+      };
+
+      console.log('📝 Data being saved:', dataToSave);
+
+      await updateAgentPrompt.mutateAsync(dataToSave);
+      
+      toast({
+        title: "Sucesso!",
+        description: "Prompt salvo com sucesso!",
       });
       
-      // Show success message
-      console.log('Prompt salvo com sucesso!');
+      console.log('✅ Save completed successfully');
     } catch (error) {
-      console.error('Erro ao salvar:', error);
+      console.error('❌ Error saving prompt:', error);
+      toast({
+        title: "Erro ao salvar",
+        description: "Ocorreu um erro ao salvar o prompt. Tente novamente.",
+        variant: "destructive"
+      });
     } finally {
       setIsSaving(false);
     }
