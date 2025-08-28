@@ -38,26 +38,29 @@ Deno.serve(async (req) => {
       ? 'https://api.firecrawl.dev/v2/scrape'
       : 'https://api.firecrawl.dev/v2/crawl';
 
+    // Start with minimal payload for v2 compatibility
     const firecrawlPayload: any = {
       url,
-      formats: options.formats || ['markdown', 'html'],
-      actions: [
+      formats: options.formats || ['markdown', 'html']
+    };
+
+    // Add common scraping parameters (all at root level for v2)
+    if (mode === 'scrape') {
+      firecrawlPayload.onlyMainContent = true;
+      firecrawlPayload.includeTags = ['article', 'main', 'content', 'post', 'div', 'section'];
+      firecrawlPayload.excludeTags = ['nav', 'footer', 'aside', 'ad', 'script', 'style', 'header'];
+      firecrawlPayload.removeBase64Images = true;
+      firecrawlPayload.waitFor = 2000;
+      firecrawlPayload.headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      };
+      firecrawlPayload.actions = [
         {
           type: 'wait',
           milliseconds: 2000
         }
-      ],
-      options: {
-        includeTags: ['article', 'main', 'content', 'post', 'div', 'section'],
-        excludeTags: ['nav', 'footer', 'aside', 'ad', 'script', 'style', 'header'],
-        onlyMainContent: true,
-        removeBase64Images: true,
-        waitFor: 2000,
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-      }
-    };
+      ];
+    }
 
     if (mode === 'crawl') {
       firecrawlPayload.limit = 50;
