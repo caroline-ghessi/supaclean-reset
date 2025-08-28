@@ -400,6 +400,78 @@ export type Database = {
         }
         Relationships: []
       }
+      faq_patterns: {
+        Row: {
+          agent_type: Database["public"]["Enums"]["product_category"]
+          created_at: string | null
+          embedding: string | null
+          frequency: number | null
+          id: string
+          intent: string
+          last_seen: string | null
+          pattern_text: string
+          updated_at: string | null
+        }
+        Insert: {
+          agent_type: Database["public"]["Enums"]["product_category"]
+          created_at?: string | null
+          embedding?: string | null
+          frequency?: number | null
+          id?: string
+          intent: string
+          last_seen?: string | null
+          pattern_text: string
+          updated_at?: string | null
+        }
+        Update: {
+          agent_type?: Database["public"]["Enums"]["product_category"]
+          created_at?: string | null
+          embedding?: string | null
+          frequency?: number | null
+          id?: string
+          intent?: string
+          last_seen?: string | null
+          pattern_text?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      knowledge_analytics: {
+        Row: {
+          agent_type: Database["public"]["Enums"]["product_category"]
+          average_confidence: number | null
+          created_at: string | null
+          date: string
+          id: string
+          knowledge_entries_used: number | null
+          new_knowledge_created: number | null
+          successful_responses: number | null
+          total_queries: number | null
+        }
+        Insert: {
+          agent_type: Database["public"]["Enums"]["product_category"]
+          average_confidence?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          knowledge_entries_used?: number | null
+          new_knowledge_created?: number | null
+          successful_responses?: number | null
+          total_queries?: number | null
+        }
+        Update: {
+          agent_type?: Database["public"]["Enums"]["product_category"]
+          average_confidence?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          knowledge_entries_used?: number | null
+          new_knowledge_created?: number | null
+          successful_responses?: number | null
+          total_queries?: number | null
+        }
+        Relationships: []
+      }
       knowledge_chunks: {
         Row: {
           agent_category: Database["public"]["Enums"]["product_category"]
@@ -443,6 +515,108 @@ export type Database = {
             columns: ["file_id"]
             isOneToOne: false
             referencedRelation: "agent_knowledge_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_feedback: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          feedback_text: string | null
+          feedback_type: string
+          id: string
+          knowledge_entry_id: string
+          message_id: string | null
+          rating: number | null
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          feedback_text?: string | null
+          feedback_type: string
+          id?: string
+          knowledge_entry_id: string
+          message_id?: string | null
+          rating?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          feedback_text?: string | null
+          feedback_type?: string
+          id?: string
+          knowledge_entry_id?: string
+          message_id?: string | null
+          rating?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_feedback_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_feedback_knowledge_entry_id_fkey"
+            columns: ["knowledge_entry_id"]
+            isOneToOne: false
+            referencedRelation: "agent_knowledge_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_usage_log: {
+        Row: {
+          agent_type: Database["public"]["Enums"]["product_category"]
+          confidence_score: number | null
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          knowledge_ids: string[]
+          query: string
+          response_generated: string | null
+          user_id: string | null
+        }
+        Insert: {
+          agent_type: Database["public"]["Enums"]["product_category"]
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          knowledge_ids: string[]
+          query: string
+          response_generated?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          agent_type?: Database["public"]["Enums"]["product_category"]
+          confidence_score?: number | null
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          knowledge_ids?: string[]
+          query?: string
+          response_generated?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_usage_log_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -803,6 +977,24 @@ export type Database = {
           similarity: number
         }[]
       }
+      search_knowledge_enhanced: {
+        Args: {
+          agent_filter?: Database["public"]["Enums"]["product_category"]
+          include_general?: boolean
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_index: number
+          content: string
+          created_at: string
+          file_name: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
       search_knowledge_files: {
         Args: {
           max_results?: number
@@ -829,6 +1021,14 @@ export type Database = {
       sparsevec_typmod_in: {
         Args: { "": unknown[] }
         Returns: number
+      }
+      update_file_confidence_score: {
+        Args: {
+          adjustment_factor?: number
+          feedback_type: string
+          file_id: string
+        }
+        Returns: undefined
       }
       vector_avg: {
         Args: { "": number[] }
