@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   title?: string;
@@ -22,6 +23,11 @@ export function Header({
   showSearch = true, 
   onSearch 
 }: HeaderProps) {
+  const { user, signOut } = useAuth();
+
+  const handleSignOut = () => {
+    signOut();
+  };
   return (
     <header className="h-16 border-b border-slate-200 bg-white px-6 flex items-center justify-between">
       {/* Left Section */}
@@ -71,9 +77,11 @@ export function Header({
           
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <div className="flex flex-col space-y-1 p-2">
-              <p className="text-sm font-medium leading-none">Administrador</p>
+              <p className="text-sm font-medium leading-none">
+                {user?.user_metadata?.full_name || 'Usuário'}
+              </p>
               <p className="text-xs leading-none text-muted-foreground">
-                admin@drystore.com
+                {user?.email}
               </p>
             </div>
             
@@ -91,7 +99,7 @@ export function Header({
             
             <DropdownMenuSeparator />
             
-            <DropdownMenuItem className="text-red-600">
+            <DropdownMenuItem className="text-red-600" onClick={handleSignOut}>
               <LogOut className="mr-2 h-4 w-4" />
               <span>Sair</span>
             </DropdownMenuItem>
