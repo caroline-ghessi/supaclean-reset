@@ -1,7 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { extractFromPdf } from "https://deno.land/x/pdf2text@1.0.1/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -175,21 +174,53 @@ ${rawText}`;
   }
 }
 
-// Native PDF text extraction using Deno library
+// Basic PDF text extraction using pattern matching
 async function extractPDFText(buffer: ArrayBuffer): Promise<string> {
   try {
-    console.log('📄 Extracting PDF text using Deno library...');
+    console.log('📄 Extracting PDF text using basic pattern matching...');
     const uint8Array = new Uint8Array(buffer);
-    const text = await extractFromPdf(uint8Array);
+    const text = new TextDecoder('utf-8', { fatal: false }).decode(uint8Array);
     
-    if (!text || text.trim().length === 0) {
-      throw new Error('No text extracted from PDF');
+    // Extract text between common PDF text markers
+    const textPatterns = [
+      /\(([^)]+)\)/g,  // Text in parentheses
+      /BT\s+([^ET]+)ET/g,  // Text between BT and ET markers
+      /Tj\s*(.+)/g,    // Text with Tj operator
+      /TJ\s*\[([^\]]+)\]/g  // Text arrays with TJ operator
+    ];
+    
+    let extractedText = '';
+    
+    // Try different extraction patterns
+    for (const pattern of textPatterns) {
+      const matches = text.match(pattern);
+      if (matches) {
+        extractedText += matches.join(' ') + ' ';
+      }
     }
     
-    console.log(`✅ Successfully extracted ${text.length} characters from PDF`);
-    return text;
+    // Clean up the extracted text
+    extractedText = extractedText
+      .replace(/[^\w\s\u00C0-\u017F.,;:!?()-]/g, ' ') // Keep only readable characters
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+    
+    if (!extractedText || extractedText.length < 50) {
+      // Fallback: extract any readable text sequences
+      const readableText = text.match(/[A-Za-z\u00C0-\u017F][A-Za-z\u00C0-\u017F\s.,;:!?()-]{10,}/g);
+      if (readableText) {
+        extractedText = readableText.join(' ').substring(0, 5000);
+      }
+    }
+    
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error('No readable text found in PDF');
+    }
+    
+    console.log(`✅ Successfully extracted ${extractedText.length} characters from PDF`);
+    return extractedText;
   } catch (error) {
-    console.error('Native PDF extraction failed:', error);
+    console.error('Basic PDF extraction failed:', error);
     throw new Error(`PDF extraction failed: ${error.message}`);
   }
 }
