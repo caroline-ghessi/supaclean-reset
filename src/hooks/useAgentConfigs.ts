@@ -5,7 +5,7 @@ import { ProductCategory } from '@/types/conversation.types';
 export interface AgentConfig {
   id: string;
   agent_name: string;
-  agent_type: 'general' | 'classifier' | 'extractor' | 'specialist';
+  agent_type: 'general' | 'classifier' | 'extractor' | 'specialist' | 'lead_scorer';
   product_category?: ProductCategory;
   is_active: boolean;
   system_prompt: string;
@@ -110,7 +110,7 @@ export function useDeleteAgentConfig() {
   });
 }
 
-export function useAgentsByType(agentType: 'general' | 'classifier' | 'extractor' | 'specialist') {
+export function useAgentsByType(agentType: 'general' | 'classifier' | 'extractor' | 'specialist' | 'lead_scorer') {
   return useQuery({
     queryKey: ['agent-configs', 'by-type', agentType],
     queryFn: async () => {

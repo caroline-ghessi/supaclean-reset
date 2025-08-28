@@ -192,7 +192,11 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                     ))
                   )}
                   
-                  <Button variant="outline" className="w-full mt-4 flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-4 flex items-center gap-2"
+                    onClick={() => window.location.href = '/bot?tab=config'}
+                  >
                     <Plus className="w-4 h-4" />
                     Criar Novo Agente
                   </Button>

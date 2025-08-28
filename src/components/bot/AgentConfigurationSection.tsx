@@ -18,14 +18,16 @@ const agentTypeLabels = {
   general: 'Geral',
   classifier: 'Classificador',
   extractor: 'Extrator',
-  specialist: 'Especialista'
+  specialist: 'Especialista',
+  lead_scorer: 'Avaliador de Leads'
 };
 
 const agentTypeIcons = {
   general: Users,
   classifier: Search,
   extractor: Zap,
-  specialist: Bot
+  specialist: Bot,
+  lead_scorer: Users
 };
 
 const productCategories: ProductCategory[] = [
@@ -41,7 +43,7 @@ const productCategories: ProductCategory[] = [
 
 interface AgentFormData {
   agent_name: string;
-  agent_type: 'general' | 'classifier' | 'extractor' | 'specialist';
+  agent_type: 'general' | 'classifier' | 'extractor' | 'specialist' | 'lead_scorer';
   product_category?: ProductCategory;
   system_prompt: string;
   temperature: number;
@@ -210,6 +212,7 @@ export function AgentConfigurationSection() {
                         <SelectItem value="classifier">Classificador</SelectItem>
                         <SelectItem value="extractor">Extrator</SelectItem>
                         <SelectItem value="specialist">Especialista</SelectItem>
+                        <SelectItem value="lead_scorer">Avaliador de Leads</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -306,12 +309,13 @@ export function AgentConfigurationSection() {
       </CardHeader>
       <CardContent>
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="all">Todos</TabsTrigger>
             <TabsTrigger value="general">Geral</TabsTrigger>
             <TabsTrigger value="classifier">Classificador</TabsTrigger>
             <TabsTrigger value="extractor">Extrator</TabsTrigger>
             <TabsTrigger value="specialist">Especialistas</TabsTrigger>
+            <TabsTrigger value="lead_scorer">Leads</TabsTrigger>
           </TabsList>
 
           <TabsContent value={selectedTab} className="mt-6">

@@ -1292,7 +1292,12 @@ export type Database = {
       }
     }
     Enums: {
-      agent_type: "general" | "classifier" | "extractor" | "specialist"
+      agent_type:
+        | "general"
+        | "classifier"
+        | "extractor"
+        | "specialist"
+        | "lead_scorer"
       conversation_status:
         | "waiting"
         | "active"
@@ -1443,7 +1448,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      agent_type: ["general", "classifier", "extractor", "specialist"],
+      agent_type: [
+        "general",
+        "classifier",
+        "extractor",
+        "specialist",
+        "lead_scorer",
+      ],
       conversation_status: [
         "waiting",
         "active",

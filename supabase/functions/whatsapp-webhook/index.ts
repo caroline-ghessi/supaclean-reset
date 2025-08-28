@@ -58,7 +58,18 @@ serve(async (req) => {
           // Handle incoming messages
           if (messageData.messages?.[0]) {
             for (const message of messageData.messages) {
-              await handleIncomingMessage(message, messageData.contacts?.[0]);
+              const conversationId = await handleIncomingMessage(message, messageData.contacts?.[0]);
+              
+              // Trigger lead scoring após processar mensagem
+              if (conversationId) {
+                try {
+                  await supabase.functions.invoke('score-lead-temperature', {
+                    body: { conversationId }
+                  });
+                } catch (error) {
+                  console.error('Erro ao executar scoring de leads:', error);
+                }
+              }
             }
           }
 
@@ -213,6 +224,8 @@ async function handleIncomingMessage(message: any, contact: any) {
       messageId: whatsappMessageId,
       content: content.substring(0, 50)
     });
+
+    return conversation.id;
 
   } catch (error) {
     console.error('Error handling incoming message:', error);
