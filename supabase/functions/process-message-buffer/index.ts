@@ -20,46 +20,86 @@ Deno.serve(async (req) => {
     
     console.log(`Processing message buffer for conversation: ${conversationId}`);
 
-    // Buscar buffer não processado para esta conversa
+    // IMPLEMENTAÇÃO DE LOCK ATÔMICO
+    // Tentar marcar buffer como "em processamento" de forma atômica
+    const now = new Date();
+    
     const { data: buffer, error: bufferError } = await supabase
       .from('message_buffers')
       .select('*')
       .eq('conversation_id', conversationId)
       .eq('processed', false)
+      .is('processing_started_at', null)  // Não está sendo processado por outra instância
       .single();
 
     if (bufferError || !buffer) {
-      console.log('No active buffer found or already processed');
-      return new Response(JSON.stringify({ processed: false }), {
+      console.log('No active buffer found, already processed, or being processed by another instance');
+      return new Response(JSON.stringify({ 
+        processed: false, 
+        reason: 'no_buffer_or_already_processing' 
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     // Verificar se já passou tempo suficiente
-    const now = new Date();
     const shouldProcessAt = new Date(buffer.should_process_at);
     
     if (now < shouldProcessAt) {
       console.log('Buffer still within waiting period');
-      return new Response(JSON.stringify({ processed: false, waiting: true }), {
+      return new Response(JSON.stringify({ 
+        processed: false, 
+        waiting: true,
+        remaining_seconds: Math.ceil((shouldProcessAt.getTime() - now.getTime()) / 1000)
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Marcar buffer como processado
-    await supabase
+    // LOCK ATÔMICO: Marcar como "processando" antes de continuar
+    const { error: lockError } = await supabase
       .from('message_buffers')
       .update({
-        processed: true,
-        processed_at: now.toISOString()
+        processing_started_at: now.toISOString()
       })
-      .eq('id', buffer.id);
+      .eq('id', buffer.id)
+      .is('processing_started_at', null);  // Só atualiza se ainda não está sendo processado
+
+    if (lockError) {
+      console.log('Failed to acquire lock - another instance is processing this buffer');
+      return new Response(JSON.stringify({ 
+        processed: false, 
+        reason: 'lock_failed' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    console.log(`Successfully acquired lock for buffer ${buffer.id}`);
+
+    // Verificar novamente se o buffer ainda existe e não foi processado
+    const { data: lockedBuffer, error: verifyError } = await supabase
+      .from('message_buffers')
+      .select('*')
+      .eq('id', buffer.id)
+      .eq('processed', false)
+      .single();
+
+    if (verifyError || !lockedBuffer) {
+      console.log('Buffer was processed by another instance after lock');
+      return new Response(JSON.stringify({ 
+        processed: false, 
+        reason: 'processed_by_another_instance' 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     // Agrupar todas as mensagens do buffer
-    const messages = buffer.messages || [];
+    const messages = lockedBuffer.messages || [];
     const combinedMessage = messages.map(msg => msg.content).join(' ');
 
-    console.log(`Processing combined message: ${combinedMessage}`);
+    console.log(`Processing combined message for buffer ${lockedBuffer.id}: ${combinedMessage}`);
 
     // Buscar dados da conversa
     const { data: conversation, error: convError } = await supabase
@@ -103,7 +143,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Gerar resposta usando o novo sistema de agentes inteligentes
+    // Gerar resposta usando APENAS o sistema de agentes inteligentes
+    console.log(`Calling intelligent-agent-response for conversation ${conversationId}`);
+    
     const agentResponse = await supabase.functions.invoke('intelligent-agent-response', {
       body: {
         message: combinedMessage,
@@ -112,20 +154,51 @@ Deno.serve(async (req) => {
       }
     });
 
-    let botResponse = {
-      text: "Olá! Um especialista entrará em contato em breve.",
-      transferToHuman: false
+    if (!agentResponse.data?.response) {
+      console.error('No response from intelligent-agent-response:', agentResponse.error);
+      throw new Error('Failed to get response from intelligent agent');
+    }
+
+    const botResponse = {
+      text: agentResponse.data.response,
+      transferToHuman: agentResponse.data.transferToHuman || false
     };
 
-    if (agentResponse.data?.response) {
-      botResponse = {
-        text: agentResponse.data.response,
-        transferToHuman: false
-      };
+    console.log(`Generated response: ${botResponse.text.substring(0, 100)}...`);
+
+    // Verificar se já existe uma mensagem idêntica (proteção contra duplicatas)
+    const { data: existingMessage } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('content', botResponse.text)
+      .eq('sender_type', 'bot')
+      .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()) // Últimos 5 minutos
+      .single();
+
+    if (existingMessage) {
+      console.log('Identical message already exists, skipping duplicate');
+      
+      // Marcar buffer como processado mesmo assim
+      await supabase
+        .from('message_buffers')
+        .update({
+          processed: true,
+          processed_at: now.toISOString()
+        })
+        .eq('id', lockedBuffer.id);
+
+      return new Response(JSON.stringify({ 
+        processed: true,
+        skipped_duplicate: true,
+        productGroup: newProductGroup
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Salvar resposta do bot
-    await supabase
+    const { error: insertError } = await supabase
       .from('messages')
       .insert({
         conversation_id: conversationId,
@@ -134,31 +207,50 @@ Deno.serve(async (req) => {
         status: 'sent'
       });
 
+    if (insertError) {
+      console.error('Error saving bot message:', insertError);
+      throw new Error('Failed to save bot message');
+    }
+
+    console.log(`Sending WhatsApp message to ${conversation.whatsapp_number}`);
+
     // Enviar mensagem via WhatsApp
-    await supabase.functions.invoke('send-whatsapp-message', {
+    const whatsappResult = await supabase.functions.invoke('send-whatsapp-message', {
       body: {
         to: conversation.whatsapp_number,
         message: botResponse.text
       }
     });
 
-    // Atualizar status da conversa se necessário
-    if (botResponse.transferToHuman) {
-      await supabase
-        .from('conversations')
-        .update({
-          status: 'transferred_to_human',
-          last_message_at: now.toISOString()
-        })
-        .eq('id', conversationId);
-    } else {
-      await supabase
-        .from('conversations')
-        .update({
-          last_message_at: now.toISOString()
-        })
-        .eq('id', conversationId);
+    if (whatsappResult.error) {
+      console.error('Error sending WhatsApp message:', whatsappResult.error);
+      // Não falhar aqui, mensagem já foi salva
     }
+
+    // Atualizar status da conversa e marcar buffer como processado
+    const updateData: any = {
+      last_message_at: now.toISOString()
+    };
+
+    if (botResponse.transferToHuman) {
+      updateData.status = 'transferred_to_human';
+    }
+
+    await supabase
+      .from('conversations')
+      .update(updateData)
+      .eq('id', conversationId);
+
+    // FINALMENTE marcar buffer como processado
+    await supabase
+      .from('message_buffers')
+      .update({
+        processed: true,
+        processed_at: now.toISOString()
+      })
+      .eq('id', lockedBuffer.id);
+
+    console.log(`Successfully processed buffer ${lockedBuffer.id} for conversation ${conversationId}`);
 
     return new Response(JSON.stringify({ 
       processed: true,
@@ -185,275 +277,5 @@ Deno.serve(async (req) => {
   }
 });
 
-// Importar agentes necessários
-class BaseAgent {
-  protected companyInfo = {
-    name: 'Drystore',
-    phone: '(51) 99999-0000',
-    address: 'Porto Alegre, RS',
-    website: 'www.drystore.com.br',
-    specialties: [
-      'Energia Solar - Parceiro GE',
-      'Telhas Shingle - Telhado dos Sonhos',
-      'Steel Frame - Construção Seca',
-      'Drywall - Divisórias e Forros',
-      'Ferramentas Profissionais',
-      'Pisos e Acabamentos'
-    ]
-  };
-
-  protected getGreeting(): string {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Bom dia';
-    if (hour < 18) return 'Boa tarde';
-    return 'Boa noite';
-  }
-
-  protected extractContextualInfo(message: string) {
-    const lowerMessage = message.toLowerCase();
-    return {
-      hasUrgency: /urgente|hoje|agora|rápido|imediato/.test(lowerMessage),
-      wantsContact: /contato|telefone|ligar|falar|atendente/.test(lowerMessage),
-      wantsBudget: /preço|valor|quanto|orçamento|custo/.test(lowerMessage),
-      mentionedCompetitor: /concorrente|outro|empresa|comparar/.test(lowerMessage)
-    };
-  }
-}
-
-class GeneralAgent extends BaseAgent {
-  async generateResponse(message, conversationData) {
-    const messageCount = conversationData.messages?.length || 0;
-
-    // Greeting flow
-    if (messageCount <= 2 || message.match(/oi|olá|ola|bom dia|boa tarde|boa noite|hello|hey/i)) {
-      return {
-        text: `${this.getGreeting()}! 👋 Bem-vindo à **${this.companyInfo.name}**! 
-
-Somos especialistas em soluções completas para construção civil:
-
-🌟 **Nossas especialidades:**
-${this.companyInfo.specialties.map(spec => `• ${spec}`).join('\n')}
-
-Em que posso te ajudar hoje?`,
-        transferToHuman: false
-      };
-    }
-
-    // Default helpful response
-    return {
-      text: `😊 **Como posso te ajudar hoje?**
-
-**Principais serviços da ${this.companyInfo.name}:**
-⚡ **Energia Solar** - Economia na conta de luz
-🏠 **Telha Shingle** - Telhados modernos e duráveis  
-🏗️ **Steel Frame** - Construção rápida e econômica
-🧱 **Drywall** - Divisórias e forros profissionais
-🔧 **Ferramentas** - Equipamentos das melhores marcas
-🎨 **Acabamentos** - Pisos, tintas e revestimentos
-
-**O que você está procurando?**
-Posso te dar informações detalhadas sobre qualquer um dos nossos produtos e serviços!`,
-      transferToHuman: false
-    };
-  }
-}
-
-class SpecializedAgentFactory {
-  getAgent(category) {
-    // Para categorias específicas, retornar agentes especializados inline
-    switch(category) {
-      case 'energia_solar':
-        return {
-          async generateResponse(message, conversationData) {
-            return {
-              text: `Que bom que você tem interesse em energia solar! 🌞
-
-É uma das melhores formas de reduzir drasticamente sua conta de luz. Nossa parceria com a GE nos permite oferecer sistemas de alta qualidade.
-
-Para te ajudar melhor, você pode me contar qual o valor da sua conta de energia atual?`,
-              transferToHuman: false
-            };
-          }
-        };
-      
-      case 'telha_shingle':
-        return {
-          async generateResponse(message, conversationData) {
-            return {
-              text: `As telhas shingle são realmente uma excelente escolha para seu telhado! 🏠
-
-Elas oferecem:
-✅ Beleza e modernidade
-✅ Durabilidade superior (até 30 anos)
-✅ Proteção contra intempéries
-✅ Instalação rápida e eficiente
-
-Você já tem o projeto definido ou ainda está na fase de planejamento?`,
-              transferToHuman: false
-            };
-          }
-        };
-
-      case 'steel_frame':
-        return {
-          async generateResponse(message, conversationData) {
-            return {
-              text: `Steel frame é uma tecnologia incrível para construção! 🏗️
-
-**Vantagens:**
-⚡ Construção até 70% mais rápida
-💰 Economia de até 30% no custo total
-🌱 Sustentável e ecológica
-🏠 Estrutura resistente e durável
-
-Você já tem o projeto arquitetônico ou ainda está na fase inicial de planejamento?`,
-              transferToHuman: false
-            };
-          }
-        };
-
-      case 'drywall_divisorias':
-        return {
-          async generateResponse(message, conversationData) {
-            return {
-              text: `Drywall é perfeito para divisórias e acabamentos de qualidade! 🧱
-
-**Benefícios:**
-🚀 Instalação rápida e limpa
-🎨 Acabamento profissional
-🔧 Facilidade para instalações elétricas
-💡 Isolamento acústico e térmico
-
-Qual ambiente você pretende trabalhar? Residencial ou comercial?`,
-              transferToHuman: false
-            };
-          }
-        };
-
-      case 'ferramentas':
-        return {
-          async generateResponse(message, conversationData) {
-            return {
-              text: `Temos uma linha completa de ferramentas profissionais! 🔧
-
-**Marcas disponíveis:**
-⚡ Makita - Qualidade japonesa
-🔥 DeWalt - Resistência profissional  
-🛠️ Bosch - Tecnologia alemã
-🔨 Stanley - Tradição americana
-
-Qual ferramenta você está buscando? Posso te ajudar a encontrar a ideal para sua necessidade.`,
-              transferToHuman: false
-            };
-          }
-        };
-
-      case 'pisos':
-        return {
-          async generateResponse(message, conversationData) {
-            return {
-              text: `Nossos pisos oferecem qualidade e beleza para transformar seu ambiente! 🏠
-
-**Opções disponíveis:**
-🌟 Piso vinílico - Resistente e moderno
-🪵 Piso laminado - Beleza da madeira
-🧱 Porcelanato - Elegância e durabilidade
-🏢 Carpete comercial - Conforto e praticidade
-
-Você tem ideia de quantos metros quadrados precisa ou quais ambientes vai revestir?`,
-              transferToHuman: false
-            };
-          }
-        };
-
-      case 'acabamentos':
-        return {
-          async generateResponse(message, conversationData) {
-            return {
-              text: `Temos uma linha completa de acabamentos para deixar seu projeto perfeito! 🎨
-
-**Produtos disponíveis:**
-🎨 Tintas premium - Suvinil, Coral
-✨ Texturas especiais - Efeitos únicos
-🪵 Vernizes e stains - Proteção da madeira
-🌈 Consultoria de cores - Harmonização perfeita
-
-Qual tipo de acabamento você está procurando?`,
-              transferToHuman: false
-            };
-          }
-        };
-
-      case 'forros':
-        return {
-          async generateResponse(message, conversationData) {
-            return {
-              text: `Nossos forros são ideais para dar o acabamento perfeito ao seu ambiente! ✨
-
-**Tipos disponíveis:**
-🏠 Forro de gesso - Elegância clássica
-💡 Forro com iluminação - Modernidade
-🌡️ Forro térmico - Conforto e economia
-🎵 Forro acústico - Isolamento sonoro
-
-Qual tipo de ambiente você quer instalar o forro? Residencial, comercial ou industrial?`,
-              transferToHuman: false
-            };
-          }
-        };
-
-      default:
-        return new GeneralAgent();
-    }
-  }
-}
-
-// Função para gerar resposta usando agentes reais
-async function generateSpecializedResponse(
-  message: string,
-  productGroup: string,
-  conversation: any,
-  customerData: any
-) {
-  try {
-    // Buscar mensagens da conversa para contexto
-    const { data: messages } = await supabase
-      .from('messages')
-      .select('content, sender_type, created_at')
-      .eq('conversation_id', conversation.id)
-      .order('created_at', { ascending: true });
-
-    // Preparar dados da conversa para o agente
-    const conversationData = {
-      ...conversation,
-      messages: messages || [],
-      project_contexts: customerData
-    };
-
-    // Usar agente geral para categorias indefinidas ou saudação
-    if (['indefinido', 'saudacao', 'institucional'].includes(productGroup)) {
-      const generalAgent = new GeneralAgent();
-      const response = await generalAgent.generateResponse(message, conversationData);
-      return {
-        text: response.text,
-        transferToHuman: response.transferToHuman || false
-      };
-    } else {
-      // Usar agente especializado via factory
-      const factory = new SpecializedAgentFactory();
-      const agent = factory.getAgent(productGroup);
-      const response = await agent.generateResponse(message, conversationData);
-      return {
-        text: response.text,
-        transferToHuman: response.transferToHuman || false
-      };
-    }
-
-  } catch (error) {
-    console.error('Error generating specialized response:', error);
-    return {
-      text: `Olá! Obrigado por entrar em contato. Um de nossos especialistas irá te atender em breve!`,
-      transferToHuman: true
-    };
-  }
-}
+// TODAS AS MENSAGENS HARDCODED FORAM REMOVIDAS
+// APENAS o intelligent-agent-response é usado para gerar respostas dinâmicas
