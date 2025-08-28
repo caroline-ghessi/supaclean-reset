@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getDocument } from 'https://deno.land/x/pdfjs@2.11.338/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -174,70 +175,165 @@ ${rawText}`;
   }
 }
 
-// Basic PDF text extraction using pattern matching
-async function extractPDFText(buffer: ArrayBuffer): Promise<string> {
+// Validate if extracted text is readable
+function isTextReadable(text: string): boolean {
+  if (!text || text.length < 50) return false;
+  
+  // Count alphanumeric characters vs total characters
+  const alphanumericCount = (text.match(/[a-zA-Z0-9\u00C0-\u017F]/g) || []).length;
+  const readabilityRatio = alphanumericCount / text.length;
+  
+  // At least 70% should be readable characters
+  return readabilityRatio > 0.7;
+}
+
+// Advanced PDF text extraction using PDF.js
+async function extractPDFTextAdvanced(buffer: ArrayBuffer): Promise<string> {
   try {
-    console.log('📄 Extracting PDF text using basic pattern matching...');
+    console.log('📄 Extracting PDF text using PDF.js library...');
+    
+    const uint8Array = new Uint8Array(buffer);
+    const doc = await getDocument({ data: uint8Array }).promise;
+    
+    let fullText = '';
+    const numPages = doc.numPages;
+    console.log(`📑 PDF has ${numPages} pages`);
+    
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await doc.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      
+      // Combine all text items from the page
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      
+      fullText += pageText + '\n';
+      
+      if (pageNum % 5 === 0) {
+        console.log(`📄 Processed ${pageNum}/${numPages} pages...`);
+      }
+    }
+    
+    // Clean up extracted text
+    fullText = fullText
+      .replace(/\s+/g, ' ') // Normalize whitespace
+      .trim();
+    
+    console.log(`✅ Successfully extracted ${fullText.length} characters using PDF.js`);
+    return fullText;
+  } catch (error) {
+    console.error('PDF.js extraction failed:', error);
+    throw new Error(`Advanced PDF extraction failed: ${error.message}`);
+  }
+}
+
+// Fallback PDF text extraction using pattern matching (improved)
+async function extractPDFTextFallback(buffer: ArrayBuffer): Promise<string> {
+  try {
+    console.log('📄 Using fallback PDF extraction method...');
     const uint8Array = new Uint8Array(buffer);
     const text = new TextDecoder('utf-8', { fatal: false }).decode(uint8Array);
     
-    // Extract text between common PDF text markers
-    const textPatterns = [
-      /\(([^)]+)\)/g,  // Text in parentheses
-      /BT\s+([^ET]+)ET/g,  // Text between BT and ET markers
-      /Tj\s*(.+)/g,    // Text with Tj operator
-      /TJ\s*\[([^\]]+)\]/g  // Text arrays with TJ operator
-    ];
-    
+    // Look for stream objects containing text
+    const streamPattern = /stream\s*([\s\S]*?)\s*endstream/g;
     let extractedText = '';
+    let match;
     
-    // Try different extraction patterns
-    for (const pattern of textPatterns) {
-      const matches = text.match(pattern);
-      if (matches) {
-        extractedText += matches.join(' ') + ' ';
+    while ((match = streamPattern.exec(text)) !== null) {
+      const streamContent = match[1];
+      
+      // Extract readable text sequences from stream
+      const readableText = streamContent.match(/[A-Za-z\u00C0-\u017F][A-Za-z0-9\u00C0-\u017F\s.,;:!?\-()]{5,}/g);
+      if (readableText) {
+        extractedText += readableText.join(' ') + ' ';
       }
+    }
+    
+    // Also try extracting from text between parentheses (common PDF format)
+    const textInParentheses = text.match(/\(([^)]{3,})\)/g);
+    if (textInParentheses) {
+      const cleanParenthesesText = textInParentheses
+        .map(match => match.slice(1, -1)) // Remove parentheses
+        .filter(str => str.length > 2)
+        .join(' ');
+      extractedText += ' ' + cleanParenthesesText;
     }
     
     // Clean up the extracted text
     extractedText = extractedText
-      .replace(/[^\w\s\u00C0-\u017F.,;:!?()-]/g, ' ') // Keep only readable characters
+      .replace(/[^\w\s\u00C0-\u017F.,;:!?\-()]/g, ' ') // Keep only readable characters
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
     
-    if (!extractedText || extractedText.length < 50) {
-      // Fallback: extract any readable text sequences
-      const readableText = text.match(/[A-Za-z\u00C0-\u017F][A-Za-z\u00C0-\u017F\s.,;:!?()-]{10,}/g);
-      if (readableText) {
-        extractedText = readableText.join(' ').substring(0, 5000);
-      }
-    }
-    
-    if (!extractedText || extractedText.trim().length === 0) {
-      throw new Error('No readable text found in PDF');
-    }
-    
-    console.log(`✅ Successfully extracted ${extractedText.length} characters from PDF`);
+    console.log(`✅ Fallback extraction yielded ${extractedText.length} characters`);
     return extractedText;
   } catch (error) {
-    console.error('Basic PDF extraction failed:', error);
-    throw new Error(`PDF extraction failed: ${error.message}`);
+    console.error('Fallback PDF extraction failed:', error);
+    throw new Error(`Fallback PDF extraction failed: ${error.message}`);
   }
+}
+
+// Main PDF text extraction with multiple strategies
+async function extractPDFText(buffer: ArrayBuffer): Promise<string> {
+  const strategies = [
+    { name: 'PDF.js', func: extractPDFTextAdvanced },
+    { name: 'Fallback', func: extractPDFTextFallback }
+  ];
+  
+  for (const strategy of strategies) {
+    try {
+      console.log(`🔄 Trying ${strategy.name} extraction strategy...`);
+      const extractedText = await strategy.func(buffer);
+      
+      // Validate if the extracted text is readable
+      if (isTextReadable(extractedText)) {
+        console.log(`✅ ${strategy.name} extraction successful and readable`);
+        return extractedText;
+      } else {
+        console.warn(`⚠️ ${strategy.name} extraction produced unreadable text`);
+        console.log(`First 200 chars: ${extractedText.substring(0, 200)}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ ${strategy.name} extraction failed:`, error.message);
+    }
+  }
+  
+  throw new Error('All PDF extraction strategies failed to produce readable text');
 }
 
 // PDF Processing - Extract text then clean with LLM
 async function processPDF(buffer: ArrayBuffer, fileName: string, agentCategory?: string): Promise<string> {
   try {
-    // Step 1: Extract raw text using Deno PDF library
+    // Step 1: Extract raw text using multiple strategies
     const rawText = await extractPDFText(buffer);
     
-    // Step 2: Clean and structure with GPT-4o
-    const cleanedText = await cleanTextWithLLM(rawText, fileName, agentCategory);
+    // Step 2: Validate and potentially split large content before LLM processing
+    let textToProcess = rawText;
+    
+    // If text is too large for LLM (>50k chars), take a representative sample
+    if (rawText.length > 50000) {
+      console.log(`📄 Text too large (${rawText.length} chars), taking representative sample`);
+      // Take first 20k, middle 15k, and last 15k characters
+      const first = rawText.substring(0, 20000);
+      const middle = rawText.substring(Math.floor(rawText.length / 2) - 7500, Math.floor(rawText.length / 2) + 7500);
+      const last = rawText.substring(rawText.length - 15000);
+      textToProcess = first + '\n...\n' + middle + '\n...\n' + last;
+      console.log(`📄 Sample text length: ${textToProcess.length} chars`);
+    }
+    
+    // Step 3: Clean and structure with GPT-4o
+    const cleanedText = await cleanTextWithLLM(textToProcess, fileName, agentCategory);
+    
+    // If we used a sample, mention this in the processed content
+    if (rawText.length > 50000) {
+      return `[Arquivo PDF grande processado - amostra representativa]\n\n${cleanedText}\n\n[Texto original continha ${rawText.length} caracteres]`;
+    }
     
     return cleanedText;
   } catch (error) {
     console.error('PDF processing failed:', error);
-    throw error;
+    throw new Error(`Failed to process PDF: ${error.message}`);
   }
 }
 
