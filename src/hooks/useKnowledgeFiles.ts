@@ -96,10 +96,7 @@ export function useUploadKnowledgeFile() {
       try {
         const { data: processResult, error: processError } = await supabase.functions.invoke('process-knowledge-file', {
           body: {
-            fileId: fileRecord.id,
-            agentCategory,
-            fileName: file.name,
-            fileType: file.type
+            fileId: fileRecord.id
           }
         });
 

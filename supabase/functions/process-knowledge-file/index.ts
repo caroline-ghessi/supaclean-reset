@@ -14,9 +14,6 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 interface ProcessFileRequest {
   fileId: string;
-  agentCategory: string;
-  fileName: string;
-  fileType: string;
 }
 
 serve(async (req) => {
@@ -26,14 +23,27 @@ serve(async (req) => {
   }
 
   try {
-    const { fileId, agentCategory, fileName, fileType }: ProcessFileRequest = await req.json();
+    const { fileId }: ProcessFileRequest = await req.json();
 
-    console.log(`🔍 Processing file: ${fileName} (${fileType}) for agent: ${agentCategory}`);
+    console.log(`🔍 Processing file with ID: ${fileId}`);
 
-    // Download file from storage
+    // First, get the file record from database to get the correct storage_path
+    const { data: fileRecord, error: fetchError } = await supabase
+      .from('agent_knowledge_files')
+      .select('*')
+      .eq('id', fileId)
+      .single();
+
+    if (fetchError || !fileRecord) {
+      throw new Error(`Failed to fetch file record: ${fetchError?.message || 'File not found'}`);
+    }
+
+    console.log(`📁 Found file record: ${fileRecord.file_name} at path: ${fileRecord.storage_path}`);
+
+    // Download file from storage using the correct storage_path
     const { data: fileData, error: downloadError } = await supabase.storage
       .from('agent-knowledge')
-      .download(`${agentCategory}/${fileName}`);
+      .download(fileRecord.storage_path);
 
     if (downloadError) {
       throw new Error(`Failed to download file: ${downloadError.message}`);
@@ -45,16 +55,16 @@ serve(async (req) => {
     let metadata = {};
 
     // Process based on file type
-    if (fileType === 'application/pdf') {
+    if (fileRecord.file_type === 'application/pdf') {
       extractedContent = await processPDF(fileBuffer);
-    } else if (fileType.includes('spreadsheet') || fileType.includes('excel') || fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+    } else if (fileRecord.file_type.includes('spreadsheet') || fileRecord.file_type.includes('excel') || fileRecord.file_name.endsWith('.xlsx') || fileRecord.file_name.endsWith('.xls')) {
       const result = await processExcel(fileBuffer);
       extractedContent = result.content;
       metadata = result.metadata;
-    } else if (fileType.includes('wordprocessingml') || fileName.endsWith('.docx')) {
+    } else if (fileRecord.file_type.includes('wordprocessingml') || fileRecord.file_name.endsWith('.docx')) {
       extractedContent = await processWord(fileBuffer);
     } else {
-      throw new Error(`Unsupported file type: ${fileType}`);
+      throw new Error(`Unsupported file type: ${fileRecord.file_type}`);
     }
 
     // Update database record
@@ -72,7 +82,7 @@ serve(async (req) => {
       throw new Error(`Failed to update file record: ${updateError.message}`);
     }
 
-    console.log(`✅ Successfully processed file: ${fileName}`);
+    console.log(`✅ Successfully processed file: ${fileRecord.file_name}`);
 
     // Start background task to generate embeddings
     const generateEmbeddingsPromise = supabase.functions.invoke('generate-embeddings', {
