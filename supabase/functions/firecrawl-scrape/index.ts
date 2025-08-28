@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY')!;
+const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
 
 interface FirecrawlRequest {
   url: string;
@@ -21,6 +21,28 @@ interface FirecrawlRequest {
   };
 }
 
+async function tryFirecrawlRequest(endpoint: string, apiKey: string, payload: any) {
+  console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
+  
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  console.log(`📊 Response status: ${response.status} ${response.statusText}`);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`❌ API Error (${response.status}):`, errorText);
+  }
+  
+  return response;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -32,68 +54,89 @@ Deno.serve(async (req) => {
     const { url, agentCategory, mode, options = {} } = await req.json() as FirecrawlRequest;
 
     console.log(`🔥 Starting Firecrawl ${mode} for URL: ${url}, Agent: ${agentCategory}`);
+    console.log(`🔑 API Key status: ${firecrawlApiKey ? 'Configured' : 'Missing'}`);
+
+    // Check API key
+    if (!firecrawlApiKey) {
+      throw new Error('FIRECRAWL_API_KEY not configured in Supabase secrets');
+    }
 
     // Prepare Firecrawl API request for v2
     const firecrawlEndpoint = mode === 'scrape' 
       ? 'https://api.firecrawl.dev/v2/scrape'
       : 'https://api.firecrawl.dev/v2/crawl';
 
-    // Start with minimal payload for v2 compatibility
-    const firecrawlPayload: any = {
-      url,
-      formats: options.formats || ['markdown', 'html']
+    // Progressive payload approach - start simple
+    let firecrawlPayload: any;
+    let attemptNumber = 1;
+    const maxAttempts = 3;
+    let firecrawlResponse: Response;
+
+    // Attempt 1: Minimal payload
+    console.log(`📝 Attempt ${attemptNumber}: Minimal payload`);
+    firecrawlPayload = {
+      url: url,
+      formats: ['markdown']
     };
 
-    // Add common scraping parameters (all at root level for v2)
-    if (mode === 'scrape') {
-      firecrawlPayload.onlyMainContent = true;
-      firecrawlPayload.includeTags = ['article', 'main', 'content', 'post', 'div', 'section'];
-      firecrawlPayload.excludeTags = ['nav', 'footer', 'aside', 'ad', 'script', 'style', 'header'];
-      firecrawlPayload.removeBase64Images = true;
-      firecrawlPayload.waitFor = 2000;
-      firecrawlPayload.headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    firecrawlResponse = await tryFirecrawlRequest(firecrawlEndpoint, firecrawlApiKey, firecrawlPayload);
+    
+    // Attempt 2: Add basic parameters if first attempt fails
+    if (!firecrawlResponse.ok && attemptNumber < maxAttempts) {
+      attemptNumber++;
+      console.log(`📝 Attempt ${attemptNumber}: Adding basic parameters`);
+      firecrawlPayload = {
+        url: url,
+        formats: ['markdown'],
+        onlyMainContent: true,
+        removeBase64Images: true
       };
-      firecrawlPayload.actions = [
-        {
-          type: 'wait',
-          milliseconds: 2000
+      firecrawlResponse = await tryFirecrawlRequest(firecrawlEndpoint, firecrawlApiKey, firecrawlPayload);
+    }
+
+    // Attempt 3: Add more parameters if second attempt fails
+    if (!firecrawlResponse.ok && attemptNumber < maxAttempts) {
+      attemptNumber++;
+      console.log(`📝 Attempt ${attemptNumber}: Adding advanced parameters`);
+      firecrawlPayload = {
+        url: url,
+        formats: ['markdown'],
+        onlyMainContent: true,
+        removeBase64Images: true,
+        waitFor: 2000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-      ];
-    }
+      };
 
-    if (mode === 'crawl') {
-      firecrawlPayload.limit = 50;
-      firecrawlPayload.maxDepth = options.maxDepth || 3;
-      if (options.includePatterns?.length) {
-        firecrawlPayload.includePatterns = options.includePatterns;
+      if (mode === 'scrape') {
+        firecrawlPayload.includeTags = ['article', 'main', 'content'];
+        firecrawlPayload.excludeTags = ['nav', 'footer', 'aside'];
       }
-      if (options.excludePatterns?.length) {
-        firecrawlPayload.excludePatterns = options.excludePatterns;
+
+      if (mode === 'crawl') {
+        firecrawlPayload.limit = 50;
+        firecrawlPayload.maxDepth = options.maxDepth || 3;
+        if (options.includePatterns?.length) {
+          firecrawlPayload.includePatterns = options.includePatterns;
+        }
+        if (options.excludePatterns?.length) {
+          firecrawlPayload.excludePatterns = options.excludePatterns;
+        }
       }
+
+      firecrawlResponse = await tryFirecrawlRequest(firecrawlEndpoint, firecrawlApiKey, firecrawlPayload);
     }
-
-    console.log('📤 Firecrawl payload:', JSON.stringify(firecrawlPayload, null, 2));
-
-    // Call Firecrawl API
-    const firecrawlResponse = await fetch(firecrawlEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${firecrawlApiKey}`,
-      },
-      body: JSON.stringify(firecrawlPayload),
-    });
 
     if (!firecrawlResponse.ok) {
       const errorText = await firecrawlResponse.text();
-      console.error('❌ Firecrawl API error:', errorText);
-      throw new Error(`Firecrawl API error: ${firecrawlResponse.status} - ${errorText}`);
+      console.error('❌ All Firecrawl attempts failed:', errorText);
+      throw new Error(`Firecrawl API error after ${maxAttempts} attempts: ${firecrawlResponse.status} - ${errorText}`);
     }
 
     const firecrawlData = await firecrawlResponse.json();
-    console.log('✅ Firecrawl response received');
-    console.log('📊 Response structure:', JSON.stringify(firecrawlData, null, 2));
+    console.log('✅ Firecrawl response received successfully');
+    console.log('📊 Response data structure:', Object.keys(firecrawlData));
 
     // Process results - handle v2 response structure
     const results = mode === 'scrape' ? [firecrawlData.data] : firecrawlData.data;
