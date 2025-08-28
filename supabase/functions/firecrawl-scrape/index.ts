@@ -33,18 +33,30 @@ Deno.serve(async (req) => {
 
     console.log(`🔥 Starting Firecrawl ${mode} for URL: ${url}, Agent: ${agentCategory}`);
 
-    // Prepare Firecrawl API request
+    // Prepare Firecrawl API request for v2
     const firecrawlEndpoint = mode === 'scrape' 
-      ? 'https://api.firecrawl.dev/v1/scrape'
-      : 'https://api.firecrawl.dev/v1/crawl';
+      ? 'https://api.firecrawl.dev/v2/scrape'
+      : 'https://api.firecrawl.dev/v2/crawl';
 
     const firecrawlPayload: any = {
       url,
-      formats: options.formats || ['markdown'],
-      includeTags: ['article', 'main', 'content', 'post'],
-      excludeTags: ['nav', 'footer', 'aside', 'ad', 'script', 'style'],
-      onlyMainContent: true,
-      removeBase64Images: true,
+      formats: options.formats || ['markdown', 'html'],
+      actions: [
+        {
+          type: 'wait',
+          milliseconds: 2000
+        }
+      ],
+      options: {
+        includeTags: ['article', 'main', 'content', 'post', 'div', 'section'],
+        excludeTags: ['nav', 'footer', 'aside', 'ad', 'script', 'style', 'header'],
+        onlyMainContent: true,
+        removeBase64Images: true,
+        waitFor: 2000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      }
     };
 
     if (mode === 'crawl') {
@@ -57,6 +69,8 @@ Deno.serve(async (req) => {
         firecrawlPayload.excludePatterns = options.excludePatterns;
       }
     }
+
+    console.log('📤 Firecrawl payload:', JSON.stringify(firecrawlPayload, null, 2));
 
     // Call Firecrawl API
     const firecrawlResponse = await fetch(firecrawlEndpoint, {
@@ -76,14 +90,23 @@ Deno.serve(async (req) => {
 
     const firecrawlData = await firecrawlResponse.json();
     console.log('✅ Firecrawl response received');
+    console.log('📊 Response structure:', JSON.stringify(firecrawlData, null, 2));
 
-    // Process results
+    // Process results - handle v2 response structure
     const results = mode === 'scrape' ? [firecrawlData.data] : firecrawlData.data;
     const processedFiles: any[] = [];
 
     for (const [index, item] of results.entries()) {
-      if (!item.markdown || item.markdown.trim().length < 100) {
-        console.log(`⚠️ Skipping item ${index + 1}: insufficient content`);
+      console.log(`📝 Processing item ${index + 1}:`, {
+        hasMarkdown: !!item.markdown,
+        markdownLength: item.markdown?.length || 0,
+        markdownPreview: item.markdown?.substring(0, 200) || 'No markdown',
+        metadata: item.metadata
+      });
+
+      // More lenient validation - reduced from 100 to 30 chars
+      if (!item.markdown || item.markdown.trim().length < 30) {
+        console.log(`⚠️ Skipping item ${index + 1}: insufficient content (${item.markdown?.length || 0} chars)`);
         continue;
       }
 
