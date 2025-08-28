@@ -191,6 +191,21 @@ async function generateSpecializedResponse(
   customerData: any
 ) {
   try {
+    // Buscar mensagem de saudação configurável do system_configs
+    let welcomeMessage = "Olá! 😊 Bem-vindo à Drystore!\n\nSou o assistente virtual e estou aqui para ajudar você a encontrar a melhor solução.\n\n**Como posso ajudar hoje?**";
+    
+    if (productGroup === 'saudacao') {
+      const { data: config } = await supabase
+        .from('system_configs')
+        .select('value')
+        .eq('key', 'master_agent_welcome_message')
+        .single();
+      
+      if (config?.value) {
+        welcomeMessage = config.value;
+      }
+    }
+
     // Mapear categoria para resposta apropriada
     const responses = {
       'energia_solar': {
@@ -230,7 +245,7 @@ async function generateSpecializedResponse(
         transferToHuman: false
       },
       'saudacao': {
-        text: `Olá! Tudo bem? Seja bem-vindo à Drystore! Como posso te ajudar hoje?`,
+        text: welcomeMessage,
         transferToHuman: false
       }
     };
