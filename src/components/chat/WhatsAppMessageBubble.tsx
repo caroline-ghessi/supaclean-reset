@@ -7,7 +7,7 @@ interface WhatsAppMessageBubbleProps {
 }
 
 export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
-  const isFromAgent = message.sender_type === 'agent';
+  const isFromAgent = message.sender_type === 'agent' || message.sender_type === 'bot';
   
   const getStatusIcon = () => {
     if (!isFromAgent) return null;

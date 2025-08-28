@@ -42,7 +42,7 @@ serve(async (req) => {
     // Save bot response to database
     await supabase.from('messages').insert({
       conversation_id: conversationId,
-      sender_type: 'bot',
+      sender_type: 'agent',
       content: botResponse.response,
       status: 'sent'
     });
@@ -87,7 +87,23 @@ serve(async (req) => {
 
 async function processMessageWithBot(conversationId: string, message: string) {
   try {
-    // Load conversation with context (simplified)
+    // Load system configurations
+    const { data: configs } = await supabase
+      .from('system_configs')
+      .select('*')
+      .in('key', [
+        'master_agent_welcome_message',
+        'master_agent_fallback_message',
+        'master_agent_min_confidence',
+        'master_agent_buffer_time'
+      ]);
+
+    const configMap = configs?.reduce((acc, config) => {
+      acc[config.key] = config.value;
+      return acc;
+    }, {} as Record<string, any>) || {};
+
+    // Load conversation with context
     const { data: conversation } = await supabase
       .from('conversations')
       .select(`
@@ -102,64 +118,81 @@ async function processMessageWithBot(conversationId: string, message: string) {
       throw new Error('Conversation not found');
     }
 
-    // Simple bot logic - this would normally call your BotOrchestrator
+    // Classify intent using dynamic keywords
+    const classification = await classifyIntentDynamic(
+      message,
+      conversation.product_group,
+      conversation.messages.map((m: any) => m.content)
+    );
+
+    // Log classification
+    await supabase.from('classification_logs').insert({
+      conversation_id: conversationId,
+      message_text: message,
+      classified_category: classification.category,
+      confidence_score: classification.confidence,
+      status: classification.confidence >= (configMap.master_agent_min_confidence || 0.7) ? 'success' : 'low_confidence',
+      processing_time_ms: 50, // Simplified
+      metadata: { entities: classification.entities }
+    });
+
+    // Update conversation category if changed
+    if (classification.category !== conversation.product_group) {
+      await supabase
+        .from('conversations')
+        .update({ 
+          product_group: classification.category,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', conversationId);
+    }
+
+    // Generate response
+    const messageCount = conversation.messages?.length || 0;
+    const lowerMessage = message.toLowerCase();
+    
     let response = '';
     let quickReplies: string[] = [];
     let shouldTransferToHuman = false;
 
-    // Basic greeting detection
-    const lowerMessage = message.toLowerCase();
-    if (lowerMessage.includes('oi') || lowerMessage.includes('olá') || lowerMessage.includes('ola')) {
-      response = `Olá! 😊 Bem-vindo à Drystore!
-
-Sou o assistente virtual e estou aqui para ajudar você a encontrar a melhor solução.
-
-**Como posso ajudar hoje?**`;
-      quickReplies = ['☀️ Energia Solar', '🏠 Telhas Shingle', '🏗️ Steel Frame', '🔧 Ferramentas'];
-    }
-    // Product interest detection
-    else if (lowerMessage.includes('energia solar') || lowerMessage.includes('solar')) {
-      response = `☀️ Ótimo interesse em energia solar!
-
-Somos **parceiros exclusivos GE no Sul do Brasil** 🏆
-
-Oferecemos:
-⚡ Sistemas completos de geração
-🔋 Baterias para nunca ficar sem luz
-📊 Redução de até 95% na conta
-✅ 25 anos de garantia nos painéis
-
-Para dimensionar o sistema ideal para você:
-**Qual o valor médio da sua conta de luz?**`;
-      quickReplies = ['Até R$ 200', 'R$ 200-500', 'R$ 500-1000', 'Acima de R$ 1000'];
-    }
-    else if (lowerMessage.includes('telha') || lowerMessage.includes('shingle')) {
-      response = `🏠 Excelente escolha pelas telhas shingle!
-
-Trabalhamos com **Owens Corning** dos EUA - a melhor do mercado, com:
-✅ 50 anos de garantia (documento oficial)
-✅ Resistência a ventos de 130 mph
-✅ Tecnologia SureNail exclusiva
-✅ 30+ opções de cores
-
-Para preparar o melhor orçamento, preciso saber:
-**Sua obra é uma construção nova ou reforma de telhado existente?**`;
-      quickReplies = ['Construção Nova', 'Reforma', 'Ainda não decidi'];
-    }
-    // Default response
-    else {
-      response = `Entendi sua mensagem! 
-
-Para melhor atendimento, você pode:
-- Escolher uma das opções abaixo
-- Pedir para falar com um especialista
-
-**Principais áreas que atendemos:**`;
-      quickReplies = ['Energia Solar', 'Telhas', 'Steel Frame', 'Falar com especialista'];
+    // Check if first message (greeting)
+    if (messageCount === 0 || 
+        lowerMessage.includes('oi') || 
+        lowerMessage.includes('olá') || 
+        lowerMessage.includes('ola')) {
       
-      // Transfer to human if multiple messages without clear intent
-      if (conversation.messages?.length > 3) {
-        shouldTransferToHuman = true;
+      response = configMap.master_agent_welcome_message || 
+        `Olá! 😊 Bem-vindo à Drystore!\n\nSou o assistente virtual e estou aqui para ajudar você a encontrar a melhor solução.\n\n**Como posso ajudar hoje?**`;
+      
+      quickReplies = ['☀️ Energia Solar', '🏠 Telhas Shingle', '🔧 Ferramentas', '🏗️ Steel Frame'];
+    }
+    // Check if low confidence classification
+    else if (classification.confidence < (configMap.master_agent_min_confidence || 0.7)) {
+      response = configMap.master_agent_fallback_message ||
+        `Entendi sua mensagem!\n\nPara melhor atendimento, você pode:\n- Escolher uma das opções abaixo\n- Pedir para falar com um especialista\n\n**Principais áreas que atendemos:**`;
+      
+      quickReplies = ['Energia Solar', 'Telhas', 'Steel Frame', 'Falar com especialista'];
+      shouldTransferToHuman = messageCount > 3;
+    }
+    // Category-specific responses
+    else {
+      switch (classification.category) {
+        case 'energia_solar':
+          response = `☀️ Ótimo interesse em energia solar!\n\nSomos **parceiros exclusivos GE no Sul do Brasil** 🏆\n\nOferecemos:\n⚡ Sistemas completos de geração\n🔋 Baterias para nunca ficar sem luz\n📊 Redução de até 95% na conta\n✅ 25 anos de garantia nos painéis\n\nPara dimensionar o sistema ideal para você:\n**Qual o valor médio da sua conta de luz?**`;
+          quickReplies = ['Até R$ 200', 'R$ 200-500', 'R$ 500-1000', 'Acima de R$ 1000'];
+          break;
+        
+        case 'telha_shingle':
+          response = `🏠 Excelente escolha pelas telhas shingle!\n\nTrabalhamos com **Owens Corning** dos EUA - a melhor do mercado, com:\n✅ 50 anos de garantia (documento oficial)\n✅ Resistência a ventos de 130 mph\n✅ Tecnologia SureNail exclusiva\n✅ 30+ opções de cores\n\nPara preparar o melhor orçamento, preciso saber:\n**Sua obra é uma construção nova ou reforma de telhado existente?**`;
+          quickReplies = ['Construção Nova', 'Reforma', 'Ainda não decidi'];
+          break;
+        
+        default:
+          response = configMap.master_agent_fallback_message ||
+            `Entendi sua mensagem!\n\nPara melhor atendimento, você pode:\n- Escolher uma das opções abaixo\n- Pedir para falar com um especialista\n\n**Principais áreas que atendemos:**`;
+          
+          quickReplies = ['Energia Solar', 'Telhas', 'Steel Frame', 'Falar com especialista'];
+          shouldTransferToHuman = messageCount > 5;
       }
     }
 
@@ -236,6 +269,111 @@ async function sendWhatsAppMessage(to: string, text: string, quickReplies?: stri
     console.error('Error sending WhatsApp message:', error);
     throw error;
   }
+}
+
+async function classifyIntentDynamic(
+  message: string,
+  currentCategory: any,
+  conversationHistory: string[]
+): Promise<{
+  category: string;
+  confidence: number;
+  entities: Record<string, any>;
+}> {
+  // Load dynamic keywords
+  const { data: keywords } = await supabase
+    .from('classification_keywords')
+    .select('*')
+    .eq('is_active', true);
+
+  const normalizedMessage = normalizeText(message);
+  const scores = new Map<string, number>();
+
+  // Calculate scores based on dynamic keywords
+  for (const keywordData of keywords || []) {
+    const category = keywordData.category;
+    const keyword = normalizeText(keywordData.keyword);
+    const weight = keywordData.weight || 5;
+
+    if (!scores.has(category)) {
+      scores.set(category, 0);
+    }
+
+    if (normalizedMessage.includes(keyword)) {
+      scores.set(category, scores.get(category)! + weight);
+    }
+  }
+
+  // Find top category
+  let topCategory = 'indefinido';
+  let maxScore = 0;
+
+  scores.forEach((score, category) => {
+    if (score > maxScore) {
+      maxScore = score;
+      topCategory = category;
+    }
+  });
+
+  // Calculate confidence
+  const confidence = Math.min(maxScore / 20, 1);
+
+  // If current category exists and no clear change detected, maintain it
+  if (currentCategory && 
+      !['saudacao', 'institucional', 'indefinido'].includes(currentCategory) &&
+      confidence < 0.8) {
+    return {
+      category: currentCategory,
+      confidence: 0.95,
+      entities: extractEntities(message)
+    };
+  }
+
+  return {
+    category: topCategory,
+    confidence: confidence > 0.3 ? confidence : 0.3,
+    entities: extractEntities(message)
+  };
+}
+
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractEntities(message: string): Record<string, any> {
+  const entities: Record<string, any> = {};
+
+  // Extract urgency
+  if (/urgente|hoje|agora|rápido|imediato|emergência/i.test(message)) {
+    entities.urgency = 'high';
+  }
+
+  // Extract budget intent
+  if (/preço|valor|quanto|orçamento|custo|investimento/i.test(message)) {
+    entities.wantsBudget = true;
+  }
+
+  // Extract phone numbers
+  const phoneRegex = /(\(?\d{2}\)?\s?9?\d{4}-?\d{4})/g;
+  const phones = message.match(phoneRegex);
+  if (phones) {
+    entities.phone = phones[0];
+  }
+
+  // Extract email
+  const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+  const emails = message.match(emailRegex);
+  if (emails) {
+    entities.email = emails[0];
+  }
+
+  return entities;
 }
 
 function formatPhoneNumber(phone: string): string {
