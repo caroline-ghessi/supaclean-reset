@@ -31,24 +31,40 @@ Deno.serve(async (req) => {
       throw new Error('Conversation not found');
     }
 
-    // Determinar qual agente usar
-    const { data: respondingAgentId } = await supabase.rpc('get_responding_agent', {
-      conversation_uuid: conversationId
-    });
-
-    if (!respondingAgentId) {
-      throw new Error('No responding agent found');
+    // Determinar qual agente usar baseado na categoria
+    let agentType = 'general';
+    let agentCategory = null;
+    
+    if (productCategory && !['indefinido', 'saudacao', 'institucional'].includes(productCategory)) {
+      agentType = 'specialist';
+      agentCategory = productCategory;
     }
 
     // Buscar configuração do agente
     const { data: agent, error: agentError } = await supabase
       .from('agent_configs')
       .select('*')
-      .eq('id', respondingAgentId)
+      .eq('agent_type', agentType)
+      .eq(agentCategory ? 'product_category' : 'product_category', agentCategory)
+      .eq('is_active', true)
       .single();
 
+    let finalAgent = agent;
     if (agentError || !agent) {
-      throw new Error('Agent configuration not found');
+      // Fallback para agente geral se especialista não encontrado
+      const { data: generalAgent } = await supabase
+        .from('agent_configs')
+        .select('*')
+        .eq('agent_type', 'general')
+        .eq('is_active', true)
+        .single();
+      
+      if (!generalAgent) {
+        throw new Error('No agent configuration found');
+      }
+      
+      console.log(`⚠️ Using fallback general agent for category: ${productCategory}`);
+      finalAgent = generalAgent;
     }
 
     // Buscar histórico da conversa
@@ -76,45 +92,65 @@ Deno.serve(async (req) => {
 
     // Buscar conhecimento relevante se for agente especializado
     let relevantKnowledge = '';
-    if (agent.agent_type === 'specialist' && agent.product_category) {
-      const { data: knowledgeChunks } = await supabase.rpc('search_knowledge_chunks', {
-        query_embedding: await generateEmbedding(message),
-        target_agent_category: agent.product_category,
-        similarity_threshold: 0.7,
-        max_results: 3
-      });
+    if (finalAgent.agent_type === 'specialist' && finalAgent.product_category) {
+      try {
+        const embedding = await generateEmbedding(message);
+        if (embedding && embedding.length > 0) {
+          const { data: knowledgeChunks } = await supabase.rpc('search_knowledge_chunks', {
+            query_embedding: embedding,
+            target_agent_category: finalAgent.product_category,
+            similarity_threshold: 0.7,
+            max_results: 5
+          });
 
-      if (knowledgeChunks && knowledgeChunks.length > 0) {
-        relevantKnowledge = knowledgeChunks
-          .map(chunk => `Conhecimento: ${chunk.content}`)
-          .join('\n\n');
+          if (knowledgeChunks && knowledgeChunks.length > 0) {
+            relevantKnowledge = knowledgeChunks
+              .map(chunk => `**Conhecimento relevante:**\n${chunk.content}\n---`)
+              .join('\n\n');
+          }
+        }
+      } catch (error) {
+        console.log('Knowledge search failed, continuing without knowledge:', error);
       }
     }
 
-    // Construir prompt final
-    let finalPrompt = agent.system_prompt;
-    
+    // Construir prompt final estruturado
+    let finalPrompt = `Você é um assistente especializado da Drystore. ${finalAgent.system_prompt}
+
+INSTRUÇÕES CRÍTICAS:
+- NUNCA use mensagens pré-definidas ou templates
+- Seja natural, conversacional e útil
+- Adapte-se ao contexto da conversa
+- Mantenha o tom profissional mas acessível
+- Se não souber algo específico, seja honesto e ofereça ajuda alternativa
+
+INFORMAÇÕES DA EMPRESA:
+- Drystore: empresa especializada em construção civil
+- Atendemos em todo o Sul do Brasil
+- Temos expertise em energia solar, telhas, steel frame, drywall, ferramentas, pisos e acabamentos`;
+
     if (contextInfo) {
-      finalPrompt += `\n\nInformações do cliente:\n${contextInfo}`;
+      finalPrompt += `\n\nINFORMAÇÕES DO CLIENTE:\n${contextInfo}`;
     }
     
     if (relevantKnowledge) {
-      finalPrompt += `\n\nConhecimento relevante:\n${relevantKnowledge}`;
+      finalPrompt += `\n\nBASE DE CONHECIMENTO:\n${relevantKnowledge}`;
     }
     
     if (conversationHistory) {
-      finalPrompt += `\n\nHistórico da conversa:\n${conversationHistory}`;
+      finalPrompt += `\n\nHISTÓRICO DA CONVERSA:\n${conversationHistory}`;
     }
     
-    finalPrompt += `\n\nMensagem atual do cliente: "${message}"`;
-    finalPrompt += `\n\nResponda de forma natural, útil e profissional.`;
+    finalPrompt += `\n\nMENSAGEM DO CLIENTE: "${message}"
+
+RESPOSTA: Responda de forma natural e personalizada, considerando todo o contexto acima.`;
 
     // Gerar resposta usando a API do LLM configurado
     const response = await callLLMAPI(
-      agent.llm_model || 'claude-3-5-sonnet-20241022',
+      finalAgent.llm_model || 'claude-3-5-sonnet-20241022',
       finalPrompt,
-      agent.temperature || 0.7,
-      agent.max_tokens || 500
+      finalAgent.temperature || 0.7,
+      finalAgent.max_tokens || 500
     );
 
     // Salvar a resposta no banco
@@ -124,8 +160,8 @@ Deno.serve(async (req) => {
         conversation_id: conversationId,
         content: response,
         sender_type: 'bot',
-        agent_id: agent.id,
-        agent_type: agent.agent_type,
+        agent_id: finalAgent.id,
+        agent_type: finalAgent.agent_type,
         status: 'sent'
       })
       .select()
@@ -135,17 +171,17 @@ Deno.serve(async (req) => {
     await supabase
       .from('conversations')
       .update({
-        current_agent_id: agent.id,
+        current_agent_id: finalAgent.id,
         last_message_at: new Date().toISOString()
       })
       .eq('id', conversationId);
 
-    console.log(`✅ Response generated by ${agent.agent_name}: "${response.substring(0, 100)}..."`);
+    console.log(`✅ Response generated by ${finalAgent.agent_name}: "${response.substring(0, 100)}..."`);
 
     return new Response(JSON.stringify({
       response,
-      agentName: agent.agent_name,
-      agentType: agent.agent_type,
+      agentName: finalAgent.agent_name,
+      agentType: finalAgent.agent_type,
       messageId: messageData.id
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -161,13 +197,34 @@ Deno.serve(async (req) => {
       data: { error: error.message }
     });
 
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      response: 'Desculpe, ocorreu um erro. Um especialista entrará em contato em breve.'
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    // Generate fallback response using LLM even in error cases
+    try {
+      const fallbackResponse = await callLLMAPI(
+        'claude-3-5-sonnet-20241022',
+        `Você é um assistente da Drystore. Houve um erro técnico, mas mantenha o atendimento profissional. 
+        Mensagem do cliente: "${await req.text().catch(() => 'mensagem não disponível')}"
+        
+        Responda de forma natural explicando que houve um problema técnico e que um especialista entrará em contato.`,
+        0.7,
+        300
+      );
+      
+      return new Response(JSON.stringify({ 
+        error: error.message,
+        response: fallbackResponse
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } catch (fallbackError) {
+      return new Response(JSON.stringify({ 
+        error: error.message,
+        response: 'Desculpe, tivemos um problema técnico. Um especialista entrará em contato com você em breve para resolver sua solicitação.'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
   }
 });
 
