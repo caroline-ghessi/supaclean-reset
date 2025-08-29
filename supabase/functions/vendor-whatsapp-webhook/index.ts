@@ -49,7 +49,7 @@ serve(async (req) => {
     // Verificar se o vendedor existe e está ativo
     const { data: vendor, error: vendorError } = await supabase
       .from('vendors')
-      .select('*')
+      .select('id, name, phone_number, whapi_channel_id, token_configured, is_active')
       .eq('id', vendorId)
       .eq('is_active', true)
       .single();
@@ -59,18 +59,48 @@ serve(async (req) => {
       return new Response('Vendor not found', { status: 404, headers: corsHeaders });
     }
 
-    // Log webhook recebido
+    // Verificar se o token está configurado nos secrets
+    if (!vendor.token_configured) {
+      console.error('Vendor token not configured:', vendorId);
+      await supabase.from('system_logs').insert({
+        level: 'error',
+        source: 'vendor-whatsapp-webhook',
+        message: 'Vendor token not configured',
+        data: { vendor_id: vendorId, vendor_name: vendor.name }
+      });
+      return new Response('Vendor token not configured', { status: 401, headers: corsHeaders });
+    }
+
+    // Buscar token nos secrets (seguro - não vaza em logs)
+    const vendorToken = Deno.env.get(`VENDOR_TOKEN_${vendorId}`);
+    if (!vendorToken) {
+      console.error('Vendor token secret not found');
+      await supabase.from('system_logs').insert({
+        level: 'error',
+        source: 'vendor-whatsapp-webhook',
+        message: 'Vendor token secret not found in environment',
+        data: { vendor_id: vendorId, vendor_name: vendor.name }
+      });
+      return new Response('Vendor token not configured', { status: 401, headers: corsHeaders });
+    }
+
+    // Log webhook recebido (sem dados sensíveis)
     await supabase.from('system_logs').insert({
       level: 'info',
       source: 'vendor-whatsapp-webhook',
       message: 'Webhook received',
-      data: { vendor_id: vendorId, data: webhookData }
+      data: { 
+        vendor_id: vendorId, 
+        vendor_name: vendor.name,
+        messages_count: webhookData.messages?.length || 0,
+        statuses_count: webhookData.statuses?.length || 0
+      }
     });
 
     // Processar mensagens
     if (webhookData.messages && webhookData.messages.length > 0) {
       for (const message of webhookData.messages) {
-        await processMessage(supabase, vendor, message);
+        await processMessage(supabase, { ...vendor, token: vendorToken }, message);
       }
     }
 

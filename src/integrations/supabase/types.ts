@@ -1301,9 +1301,9 @@ export type Database = {
           is_active: boolean | null
           name: string
           phone_number: string
+          token_configured: boolean
           updated_at: string | null
           whapi_channel_id: string
-          whapi_token: string
         }
         Insert: {
           created_at?: string | null
@@ -1311,9 +1311,9 @@ export type Database = {
           is_active?: boolean | null
           name: string
           phone_number: string
+          token_configured?: boolean
           updated_at?: string | null
           whapi_channel_id: string
-          whapi_token: string
         }
         Update: {
           created_at?: string | null
@@ -1321,9 +1321,9 @@ export type Database = {
           is_active?: boolean | null
           name?: string
           phone_number?: string
+          token_configured?: boolean
           updated_at?: string | null
           whapi_channel_id?: string
-          whapi_token?: string
         }
         Relationships: []
       }

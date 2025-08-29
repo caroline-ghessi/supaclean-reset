@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useVendors } from '@/hooks/useVendors';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TokenConfigurationButton } from './TokenConfigurationButton';
 
 interface VendorListProps {
   onSelectVendor: (vendor: any) => void;
@@ -101,12 +102,20 @@ export function VendorList({ onSelectVendor, selectedVendor }: VendorListProps) 
                 </div>
               </div>
               
-              {vendor.is_active && (
-                <div className="mt-4 flex items-center justify-center text-xs text-green-600">
-                  <Activity className="h-3 w-3 mr-1" />
-                  Online - Monitorando
-                </div>
-              )}
+              <div className="mt-4 flex flex-col items-center gap-2">
+                {vendor.is_active && vendor.token_configured && (
+                  <div className="flex items-center text-xs text-green-600">
+                    <Activity className="h-3 w-3 mr-1" />
+                    Online - Monitorando
+                  </div>
+                )}
+                
+                <TokenConfigurationButton
+                  vendorId={vendor.id}
+                  vendorName={vendor.name}
+                  tokenConfigured={vendor.token_configured}
+                />
+              </div>
             </CardContent>
           </Card>
         ))}

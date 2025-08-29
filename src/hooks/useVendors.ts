@@ -5,8 +5,8 @@ export interface Vendor {
   id: string;
   name: string;
   phone_number: string;
-  whapi_token: string;
   whapi_channel_id: string;
+  token_configured: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
