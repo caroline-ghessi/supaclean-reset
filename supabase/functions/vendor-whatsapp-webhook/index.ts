@@ -298,12 +298,28 @@ async function processMessage(supabase: any, vendor: any, message: WhapiMessage)
 async function processMessageStatus(supabase: any, vendor: any, status: any) {
   const { id, status: messageStatus, timestamp } = status;
 
-  // 3. FIX: Usar merge JSONB para preservar metadata existente
+  // Update message status - simplified approach without raw SQL
+  const statusUpdatedAt = new Date(timestamp * 1000).toISOString();
+  
+  // First get the current metadata
+  const { data: currentMessage } = await supabase
+    .from('vendor_messages')
+    .select('metadata')
+    .eq('whapi_message_id', id)
+    .eq('vendor_id', vendor.id)
+    .single();
+
+  // Merge metadata preserving existing data
+  const updatedMetadata = {
+    ...(currentMessage?.metadata || {}),
+    status_updated_at: statusUpdatedAt
+  };
+
   const { error } = await supabase
     .from('vendor_messages')
     .update({
       status: messageStatus,
-      metadata: supabase.raw(`metadata || jsonb_build_object('status_updated_at', '${new Date(timestamp * 1000).toISOString()}')`)
+      metadata: updatedMetadata
     })
     .eq('whapi_message_id', id)
     .eq('vendor_id', vendor.id);
@@ -366,17 +382,27 @@ async function updateConversationStats(supabase: any, conversationId: number, fr
   } catch (error) {
     console.error('Error updating conversation stats via RPC:', error);
     
-    // 4. FIX: Corrigir fallback usando raw() para incrementos
+    // Fallback: Get current values and increment manually
     try {
-      const field = fromMe ? 'vendor_messages' : 'customer_messages';
-      await supabase
+      const { data: currentStats } = await supabase
         .from('vendor_conversations')
-        .update({
-          [field]: supabase.raw(`${field} + 1`),
-          total_messages: supabase.raw(`total_messages + 1`),
+        .select('vendor_messages, customer_messages, total_messages')
+        .eq('id', conversationId)
+        .single();
+
+      if (currentStats) {
+        const field = fromMe ? 'vendor_messages' : 'customer_messages';
+        const newValues = {
+          [field]: (currentStats[field] || 0) + 1,
+          total_messages: (currentStats.total_messages || 0) + 1,
           updated_at: new Date().toISOString()
-        })
-        .eq('id', conversationId);
+        };
+
+        await supabase
+          .from('vendor_conversations')
+          .update(newValues)
+          .eq('id', conversationId);
+      }
     } catch (fallbackError) {
       console.error('Error in fallback stats update:', fallbackError);
       // Log do erro para debug
