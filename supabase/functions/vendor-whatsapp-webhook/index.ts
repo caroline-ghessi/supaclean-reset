@@ -59,18 +59,6 @@ serve(async (req) => {
       return new Response('Vendor not found', { status: 404, headers: corsHeaders });
     }
 
-    // Verificar se o token está configurado nos secrets
-    if (!vendor.token_configured) {
-      console.error('Vendor token not configured:', vendorId);
-      await supabase.from('system_logs').insert({
-        level: 'error',
-        source: 'vendor-whatsapp-webhook',
-        message: 'Vendor token not configured',
-        data: { vendor_id: vendorId, vendor_name: vendor.name }
-      });
-      return new Response('Vendor token not configured', { status: 401, headers: corsHeaders });
-    }
-
     // Buscar token nos secrets (seguro - não vaza em logs)
     const vendorToken = Deno.env.get(`VENDOR_TOKEN_${vendorId}`);
     if (!vendorToken) {
@@ -82,6 +70,22 @@ serve(async (req) => {
         data: { vendor_id: vendorId, vendor_name: vendor.name }
       });
       return new Response('Vendor token not configured', { status: 401, headers: corsHeaders });
+    }
+
+    // Auto-detectar se token está configurado e atualizar status
+    if (!vendor.token_configured) {
+      console.log('Auto-detecting token configuration for vendor:', vendorId);
+      await supabase
+        .from('vendors')
+        .update({ token_configured: true, updated_at: new Date().toISOString() })
+        .eq('id', vendorId);
+      
+      await supabase.from('system_logs').insert({
+        level: 'info',
+        source: 'vendor-whatsapp-webhook',
+        message: 'Auto-updated token_configured status to true',
+        data: { vendor_id: vendorId, vendor_name: vendor.name }
+      });
     }
 
     // Log webhook recebido (sem dados sensíveis)
@@ -242,12 +246,24 @@ async function findOrCreateConversation(supabase: any, vendorId: string, chatId:
 }
 
 async function updateConversationStats(supabase: any, conversationId: number, fromMe: boolean) {
-  const field = fromMe ? 'vendor_messages' : 'customer_messages';
-  
-  await supabase.rpc('increment_conversation_stats', {
-    conversation_id: conversationId,
-    field_name: field
-  });
+  try {
+    await supabase.rpc('update_vendor_conversation_stats', {
+      conversation_id_param: conversationId,
+      from_me_param: fromMe
+    });
+  } catch (error) {
+    console.error('Error updating conversation stats:', error);
+    // Fallback para update manual se RPC falhar
+    const field = fromMe ? 'vendor_messages' : 'customer_messages';
+    await supabase
+      .from('vendor_conversations')
+      .update({
+        [field]: supabase.sql`${field} + 1`,
+        total_messages: supabase.sql`total_messages + 1`,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', conversationId);
+  }
 }
 
 async function calculateQualityMetrics(supabase: any, vendorId: string, conversationId: number, message: any) {

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useVendors } from '@/hooks/useVendors';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TokenConfigurationButton } from './TokenConfigurationButton';
+import { VendorStatusDiagnostic } from './VendorStatusDiagnostic';
 
 interface VendorListProps {
   onSelectVendor: (vendor: any) => void;
@@ -12,7 +13,7 @@ interface VendorListProps {
 }
 
 export function VendorList({ onSelectVendor, selectedVendor }: VendorListProps) {
-  const { data: vendors, isLoading } = useVendors();
+  const { data: vendors, isLoading, refetch } = useVendors();
 
   if (isLoading) {
     return (
@@ -114,8 +115,18 @@ export function VendorList({ onSelectVendor, selectedVendor }: VendorListProps) 
                   vendorId={vendor.id}
                   vendorName={vendor.name}
                   tokenConfigured={vendor.token_configured}
+                  onTokenConfigured={() => refetch()}
                 />
               </div>
+
+              {selectedVendor?.id === vendor.id && (
+                <div className="mt-4 pt-4 border-t">
+                  <VendorStatusDiagnostic 
+                    vendor={vendor} 
+                    onStatusUpdate={() => refetch()}
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}

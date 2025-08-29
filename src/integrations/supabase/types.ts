@@ -1496,6 +1496,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      update_vendor_conversation_stats: {
+        Args: { conversation_id_param: number; from_me_param: boolean }
+        Returns: undefined
+      }
       vector_avg: {
         Args: { "": number[] }
         Returns: string
