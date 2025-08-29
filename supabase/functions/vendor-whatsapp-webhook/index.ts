@@ -254,8 +254,11 @@ async function processMessage(supabase: any, vendor: any, message: WhapiMessage)
   // Extrair número do cliente
   const customerPhone = extractPhoneFromChatId(chat_id);
   
+  // O nome do cliente deve vir apenas das mensagens que não são do vendedor
+  const actualCustomerName = from_me ? undefined : from_name;
+  
   // Encontrar ou criar conversa
-  const conversation = await findOrCreateConversation(supabase, vendor.id, chat_id, customerPhone, from_name);
+  const conversation = await findOrCreateConversation(supabase, vendor.id, chat_id, customerPhone, actualCustomerName);
   
   // Processar conteúdo da mensagem baseado no tipo
   const messageContent = extractMessageContent(message);
@@ -360,13 +363,19 @@ async function findOrCreateConversation(supabase: any, vendorId: string, chatId:
       
     conversation = newConversation;
   } else {
-    // Atualizar última mensagem
+    // Atualizar última mensagem e nome do cliente se disponível
+    const updateData: any = {
+      last_message_at: new Date().toISOString()
+    };
+    
+    // Só atualizar o nome do cliente se estiver disponível (mensagem não é do vendedor)
+    if (customerName) {
+      updateData.customer_name = customerName;
+    }
+    
     await supabase
       .from('vendor_conversations')
-      .update({
-        last_message_at: new Date().toISOString(),
-        customer_name: customerName || conversation.customer_name
-      })
+      .update(updateData)
       .eq('id', conversation.id);
   }
 
