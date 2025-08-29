@@ -470,11 +470,13 @@ async function calculateQualityMetrics(supabase: any, vendorId: string, conversa
 }
 
 function isIndividualChat(chatId: string): boolean {
-  return chatId.endsWith('@c.us');
+  // WhatsApp individual chats can end with @c.us OR @s.whatsapp.net
+  return chatId.endsWith('@c.us') || chatId.endsWith('@s.whatsapp.net');
 }
 
 function extractPhoneFromChatId(chatId: string): string {
-  return chatId.replace('@c.us', '');
+  // Extract phone number from both formats
+  return chatId.replace('@c.us', '').replace('@s.whatsapp.net', '');
 }
 
 function extractMessageContent(message: WhapiMessage) {
