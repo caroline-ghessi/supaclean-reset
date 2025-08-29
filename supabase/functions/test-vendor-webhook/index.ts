@@ -67,7 +67,7 @@ serve(async (req) => {
       });
     }
 
-    // Simular mensagem de teste
+    // Simular mensagem de teste no formato Whapi Cloud
     const testMessage = {
       messages: [{
         id: `test_${Date.now()}`,
@@ -77,11 +77,18 @@ serve(async (req) => {
         from_name: 'Cliente Teste',
         type: 'text',
         timestamp: Math.floor(Date.now() / 1000),
-        text: { body: 'Mensagem de teste do sistema' }
+        text: { body: 'Mensagem de teste do sistema - Whapi Cloud format' }
       }]
     };
 
-    // Tentar processar com o webhook do vendor
+    await supabase.from('system_logs').insert({
+      level: 'info',
+      source: 'test-vendor-webhook',
+      message: 'Testing vendor webhook with Whapi Cloud format',
+      data: { vendor_id, test_message: testMessage, vendor_name: vendor.name }
+    });
+
+    // Tentar processar com o webhook do vendor (novo formato com vendor_id na URL)
     const webhookUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/vendor-whatsapp-webhook?vendor_id=${vendor_id}`;
     
     try {

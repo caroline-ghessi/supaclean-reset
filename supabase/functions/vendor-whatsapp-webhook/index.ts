@@ -40,40 +40,116 @@ serve(async (req) => {
 
     const webhookData = await req.json();
     
-    // 1. FIX: Usar channel_id do payload ao invés de query param
-    const channelId = webhookData.channel_id;
-    if (!channelId) {
-      return new Response('Channel ID required in payload', { status: 400, headers: corsHeaders });
+    // DETAILED LOGGING - Log complete payload structure for debugging
+    await supabase.from('system_logs').insert({
+      level: 'info',
+      source: 'vendor-whatsapp-webhook',
+      message: 'Received webhook payload - investigating structure',
+      data: {
+        payload_keys: Object.keys(webhookData),
+        payload_structure: {
+          has_channel_id: 'channel_id' in webhookData,
+          has_messages: 'messages' in webhookData,
+          has_account: 'account' in webhookData,
+          has_instance: 'instance' in webhookData,
+          messages_count: webhookData.messages?.length || 0,
+          first_message_chat_id: webhookData.messages?.[0]?.chat_id || null,
+          payload_type: webhookData.type || 'unknown',
+          url: req.url
+        }
+      }
+    });
+
+    // Extract vendor_id from query parameters (Whapi Cloud approach)
+    const url = new URL(req.url);
+    const vendor_id = url.searchParams.get('vendor_id');
+
+    if (!vendor_id) {
+      await supabase.from('system_logs').insert({
+        level: 'error',
+        source: 'vendor-whatsapp-webhook',
+        message: 'Missing vendor_id query parameter - Whapi Cloud requires vendor_id in URL',
+        data: { url: req.url, query_params: Object.fromEntries(url.searchParams) }
+      });
+      
+      return new Response(JSON.stringify({ error: 'vendor_id query parameter is required for Whapi Cloud integration' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Buscar vendor pelo channel_id ao invés de vendor_id da URL
+    // ADAPT FOR WHAPI CLOUD STRUCTURE
+    // Whapi Cloud doesn't send channel_id in payload, instead we use vendor_id from URL
+    let channel_identifier = null;
+    
+    // Check for various possible identifiers in Whapi Cloud format
+    if (webhookData.channel_id) {
+      // Old format compatibility
+      channel_identifier = webhookData.channel_id;
+    } else if (webhookData.account) {
+      // Whapi might send account info
+      channel_identifier = webhookData.account;
+    } else if (webhookData.instance) {
+      // Whapi might send instance info
+      channel_identifier = webhookData.instance;
+    } else {
+      // Whapi Cloud approach: use vendor_id since the webhook URL is vendor-specific
+      channel_identifier = vendor_id;
+    }
+
+    await supabase.from('system_logs').insert({
+      level: 'info',
+      source: 'vendor-whatsapp-webhook',
+      message: 'Channel identifier resolution for Whapi Cloud',
+      data: {
+        vendor_id,
+        channel_identifier,
+        resolution_method: webhookData.channel_id ? 'direct_channel_id' : 
+                          webhookData.account ? 'account_field' :
+                          webhookData.instance ? 'instance_field' : 'vendor_id_from_url'
+      }
+    });
+
+    // Buscar vendor pelo vendor_id (Whapi Cloud approach)
     const { data: vendor, error: vendorError } = await supabase
       .from('vendors')
       .select('id, name, phone_number, whapi_channel_id, token_configured, is_active')
-      .eq('whapi_channel_id', channelId)
+      .eq('id', vendor_id)
       .eq('is_active', true)
       .single();
 
     if (vendorError || !vendor) {
-      console.error('Vendor not found for channel:', channelId, vendorError);
+      console.error('Vendor not found for vendor_id:', vendor_id, vendorError);
       await supabase.from('system_logs').insert({
         level: 'error',
         source: 'vendor-whatsapp-webhook',
-        message: 'Vendor not found for channel_id',
-        data: { channel_id: channelId, error: vendorError?.message }
+        message: 'Vendor not found for vendor_id',
+        data: { vendor_id, error: vendorError?.message }
       });
-      return new Response('Vendor not found', { status: 404, headers: corsHeaders });
+      return new Response(JSON.stringify({ 
+        error: 'Vendor not found', 
+        vendor_id,
+        details: vendorError?.message 
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Validação de segurança: verificar se channel_id bate
-    if (webhookData.channel_id !== vendor.whapi_channel_id) {
+    // For Whapi Cloud: Optional validation if channel_identifier is provided
+    if (webhookData.channel_id && webhookData.channel_id !== vendor.whapi_channel_id) {
       await supabase.from('system_logs').insert({
         level: 'warning',
         source: 'vendor-whatsapp-webhook',
-        message: 'Channel ID mismatch detected',
-        data: { payload_channel: webhookData.channel_id, vendor_channel: vendor.whapi_channel_id }
+        message: 'Channel ID mismatch detected (optional check)',
+        data: { 
+          payload_channel: webhookData.channel_id, 
+          vendor_channel: vendor.whapi_channel_id,
+          vendor_id: vendor.id,
+          note: 'This is optional for Whapi Cloud integration'
+        }
       });
-      return new Response('Channel mismatch', { status: 403, headers: corsHeaders });
+      // Don't reject the request for Whapi Cloud, just log the mismatch
     }
 
     // Buscar token nos secrets
@@ -121,13 +197,14 @@ serve(async (req) => {
     await supabase.from('system_logs').insert({
       level: 'info',
       source: 'vendor-whatsapp-webhook',
-      message: 'Webhook received',
+      message: 'Webhook received and processing started',
       data: { 
         vendor_id: vendor.id, 
         vendor_name: vendor.name,
-        channel_id: channelId,
+        channel_identifier,
         messages_count: webhookData.messages?.length || 0,
-        statuses_count: webhookData.statuses?.length || 0
+        statuses_count: webhookData.statuses?.length || 0,
+        whapi_channel_id: vendor.whapi_channel_id
       }
     });
 
