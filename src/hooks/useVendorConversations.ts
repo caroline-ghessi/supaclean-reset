@@ -5,6 +5,8 @@ export function useVendorConversations(vendorId: string) {
   return useQuery({
     queryKey: ['vendor-conversations', vendorId],
     queryFn: async () => {
+      console.log('Fetching conversations for vendor:', vendorId);
+      
       const { data, error } = await supabase
         .from('vendor_conversations')
         .select('*')
@@ -13,6 +15,8 @@ export function useVendorConversations(vendorId: string) {
         .order('last_message_at', { ascending: false })
         .limit(100);
 
+      console.log('Query result:', { data, error });
+      
       if (error) throw error;
       return data;
     },
