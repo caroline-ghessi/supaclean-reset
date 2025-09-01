@@ -101,7 +101,7 @@ export function useHotLeads(params: UseHotLeadsParams = {}) {
         .from('conversations')
         .select(`
           *,
-          messages!inner(
+          messages(
             id,
             content,
             created_at,
@@ -111,7 +111,8 @@ export function useHotLeads(params: UseHotLeadsParams = {}) {
           project_contexts(*)
         `)
         .or('lead_temperature.eq.hot,lead_score.gte.70')
-        .order('lead_score', { ascending: false });
+        .order('lead_score', { ascending: false })
+        .order('last_message_at', { ascending: false });
 
       // Apply filters
       if (params.productFilter && params.productFilter !== 'all') {
@@ -124,23 +125,29 @@ export function useHotLeads(params: UseHotLeadsParams = {}) {
 
       // Process and transform data
       const hotLeads: HotLead[] = conversations?.map(conv => {
-        const lastMessage = conv.messages?.[0];
-        const messageCount = conv.messages?.length || 0;
+        // Sort messages by date to get the most recent first
+        const sortedMessages = conv.messages?.sort((a, b) => 
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        ) || [];
+        
+        const lastMessage = sortedMessages[0];
+        const messageCount = sortedMessages.length;
         const lastMessageAt = new Date(conv.last_message_at || conv.created_at);
         const score = conv.lead_score || 70;
         const urgency = calculateUrgency(lastMessageAt, score);
         
         // Get recent messages for conversation preview
-        const recentMessages = conv.messages
-          ?.slice(0, 3)
+        const recentMessages = sortedMessages
+          .slice(0, 5)
           .map(msg => ({
-            sender: msg.sender_type as 'customer' | 'bot' | 'agent',
+            sender: (msg.sender_type === 'customer' ? 'customer' : 
+                    msg.sender_type === 'agent' ? 'agent' : 'bot') as 'customer' | 'bot' | 'agent',
             text: msg.content.substring(0, 100),
             time: new Date(msg.created_at).toLocaleTimeString('pt-BR', { 
               hour: '2-digit', 
               minute: '2-digit' 
             }),
-          })) || [];
+          }));
 
         const productGroup = conv.product_group || 'indefinido';
         const estimatedValue = estimateValue(productGroup, conv.project_contexts?.[0]);
@@ -166,7 +173,7 @@ export function useHotLeads(params: UseHotLeadsParams = {}) {
           productIcon: PRODUCT_EMOJIS[productGroup] || '❓',
           estimatedValue,
           messages: messageCount,
-          responseTime: hoursAgo < 1 ? 'Responde rápido' : hoursAgo < 4 ? 'Demora um pouco' : 'Resposta lenta',
+          responseTime: hoursAgo < 1 ? 'Responde rápido' : hoursAgo < 4 ? 'Demora um pouco' : hoursAgo > 24 ? 'Há mais de 1 dia' : 'Resposta lenta',
           lastContact: lastMessageAt,
           lastMessage: lastMessage?.content?.substring(0, 80) || 'Sem mensagens',
           actionRequired,
@@ -209,27 +216,49 @@ export function useHotLeadsStats() {
   return useQuery({
     queryKey: ['hot-leads-stats'],
     queryFn: async () => {
+      // Get current timestamp for comparisons
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const today = new Date().toISOString().split('T')[0];
+      
       // Get leads waiting for response (>2h)
       const { data: waitingLeads } = await supabase
         .from('conversations')
         .select('id, last_message_at, lead_score')
         .or('lead_temperature.eq.hot,lead_score.gte.70')
-        .lt('last_message_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
+        .lt('last_message_at', twoHoursAgo);
 
-      // Get total pipeline value (estimated)
+      // Get all hot leads for value calculation
       const { data: allHotLeads } = await supabase
         .from('conversations')
-        .select('product_group, project_contexts(*)')
+        .select('id, product_group, project_contexts(*)')
         .or('lead_temperature.eq.hot,lead_score.gte.70');
 
+      // Calculate total estimated value
       const totalValue = allHotLeads?.reduce((sum, conv) => {
         const estimate = estimateValue(conv.product_group || 'indefinido', conv.project_contexts?.[0]);
         const maxValue = parseInt(estimate.split('-')[1]?.replace('k', '') || '15');
         return sum + maxValue;
       }, 0) || 0;
 
-      // Get today's conversions (mock for now)
-      const conversionRate = 78; // This would come from actual conversion tracking
+      // Get today's lead distributions (converted leads)
+      const { data: todayDistributions } = await supabase
+        .from('lead_distributions')
+        .select('id')
+        .gte('sent_at', today + 'T00:00:00Z')
+        .lte('sent_at', today + 'T23:59:59Z');
+
+      // Get today's hot leads created
+      const { data: todayHotLeads } = await supabase
+        .from('conversations')
+        .select('id')
+        .or('lead_temperature.eq.hot,lead_score.gte.70')
+        .gte('created_at', today + 'T00:00:00Z')
+        .lte('created_at', today + 'T23:59:59Z');
+
+      // Calculate conversion rate
+      const conversions = todayDistributions?.length || 0;
+      const totalTodayHot = todayHotLeads?.length || 0;
+      const conversionRate = totalTodayHot > 0 ? Math.round((conversions / totalTodayHot) * 100) : 0;
 
       return {
         waitingCount: waitingLeads?.length || 0,
