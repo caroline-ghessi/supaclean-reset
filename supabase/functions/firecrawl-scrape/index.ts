@@ -21,55 +21,29 @@ Deno.serve(async (req) => {
 
     console.log(`🔥 Starting Firecrawl ${mode} for URL: ${url}, Agent: ${agentCategory}`);
 
-    // Prepare Firecrawl API request for v2 - ESTRUTURA CORRIGIDA
+    // Prepare Firecrawl API request for v2 - PAYLOAD SIMPLIFICADO
     const firecrawlEndpoint = mode === 'scrape' 
       ? 'https://api.firecrawl.dev/v2/scrape' 
       : 'https://api.firecrawl.dev/v2/crawl';
 
-    // ✅ PAYLOAD CORRETO PARA V2 - TODOS OS PARÂMETROS NO NÍVEL RAIZ
+    // ✅ PAYLOAD CORRIGIDO PARA V2 - APENAS PARÂMETROS VÁLIDOS
     const firecrawlPayload = {
       url,
-      // Formats no nível raiz
-      formats: options.formats || ['markdown', 'html'],
-      
-      // Parâmetros de conteúdo no nível raiz (NÃO dentro de options)
-      onlyMainContent: true,
-      includeTags: [
-        'article', 'main', 'content', 'post', 'div', 'section', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'
-      ],
-      excludeTags: [
-        'nav', 'footer', 'aside', 'ad', 'script', 'style', 'header', 'menu', 'sidebar'
-      ],
-      
-      // Configurações de processamento no nível raiz
-      removeBase64Images: true,
-      waitFor: 2000,
-      timeout: 30000,
-      
-      // Headers no nível raiz (NÃO dentro de options)
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      
-      // Actions no formato correto
-      actions: [
-        {
-          type: 'wait',
-          milliseconds: 2000
-        }
-      ]
+      // Apenas formats é permitido para configurar saída
+      formats: ['markdown']
     };
 
     // Configurações específicas para crawl
     if (mode === 'crawl') {
-      firecrawlPayload.limit = options.limit || 50;
-      firecrawlPayload.maxDepth = options.maxDepth || 3;
+      // Apenas limit é permitido para crawl na v2
+      firecrawlPayload.limit = options.limit || 10;
       
+      // Padrões de inclusão/exclusão são aplicados via URL patterns
       if (options.includePatterns?.length) {
-        firecrawlPayload.includePatterns = options.includePatterns;
+        firecrawlPayload.includePaths = options.includePatterns;
       }
       if (options.excludePatterns?.length) {
-        firecrawlPayload.excludePatterns = options.excludePatterns;
+        firecrawlPayload.excludePaths = options.excludePatterns;
       }
     }
 
