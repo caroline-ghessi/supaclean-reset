@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Bot } from 'lucide-react';
+import { Loader2, Bot, ArrowLeft } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function AuthPage() {
   const [email, setEmail] = useState('');
@@ -15,6 +16,10 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
+  const [showResetForm, setShowResetForm] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -82,6 +87,28 @@ export default function AuthPage() {
     setLoading(false);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetLoading(true);
+    setResetMessage('');
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+
+      if (error) {
+        setResetMessage(`Erro: ${error.message}`);
+      } else {
+        setResetMessage('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      }
+    } catch (err) {
+      setResetMessage('Erro ao enviar email de recuperação. Tente novamente.');
+    }
+
+    setResetLoading(false);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -142,6 +169,17 @@ export default function AuthPage() {
                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Entrar
                   </Button>
+                  
+                  <div className="text-center">
+                    <Button 
+                      type="button" 
+                      variant="link" 
+                      className="text-sm text-muted-foreground hover:text-primary"
+                      onClick={() => setShowResetForm(true)}
+                    >
+                      Esqueci minha senha
+                    </Button>
+                  </div>
                 </form>
               </TabsContent>
               
@@ -190,6 +228,47 @@ export default function AuthPage() {
                 </form>
               </TabsContent>
             </Tabs>
+            
+            {showResetForm && (
+              <div className="mt-6 p-4 border rounded-lg bg-muted/20">
+                <div className="flex items-center gap-2 mb-4">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setShowResetForm(false)}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-1" />
+                    Voltar
+                  </Button>
+                  <h3 className="font-medium">Recuperar Senha</h3>
+                </div>
+                
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-email">Email</Label>
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="seu@email.com"
+                      value={resetEmail}
+                      onChange={(e) => setResetEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  {resetMessage && (
+                    <Alert variant={resetMessage.includes('Erro') ? 'destructive' : 'default'}>
+                      <AlertDescription>{resetMessage}</AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  <Button type="submit" className="w-full" disabled={resetLoading}>
+                    {resetLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Enviar Email de Recuperação
+                  </Button>
+                </form>
+              </div>
+            )}
           </CardContent>
         </Card>
         

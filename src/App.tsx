@@ -14,6 +14,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BotPage from "@/pages/Bot";
 import AuthPage from "@/pages/Auth";
 import SetPasswordPage from "@/pages/SetPassword";
+import ResetPasswordPage from "@/pages/ResetPassword";
 import LeadsQuentes from "@/pages/LeadsQuentes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -37,8 +38,9 @@ function AppContent() {
     <BrowserRouter>
       <Routes>
         {/* Public auth routes */}
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/set-password" element={<SetPasswordPage />} />
+            <Route path="/auth" element={<AuthPage />} />
+            <Route path="/set-password" element={<SetPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
         
         {/* Protected full-screen routes */}
         <Route 
