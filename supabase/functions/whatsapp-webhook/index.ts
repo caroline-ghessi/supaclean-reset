@@ -261,6 +261,47 @@ async function processMessageWithAI(conversationId: string, messageContent: stri
       console.error('Classification failed:', classifyError);
     } else {
       console.log('Classification result:', classificationResult);
+      
+      // Atualizar product_group da conversa se classificação foi bem-sucedida
+      if (classificationResult?.productCategory && classificationResult.productCategory !== 'indefinido') {
+        try {
+          const { data: currentConversation } = await supabase
+            .from('conversations')
+            .select('product_group, current_agent_id')
+            .eq('id', conversationId)
+            .single();
+            
+          // Só atualizar se houve mudança de categoria
+          if (currentConversation && currentConversation.product_group !== classificationResult.productCategory) {
+            console.log(`🔄 Updating conversation category: ${currentConversation.product_group} → ${classificationResult.productCategory}`);
+            
+            await supabase
+              .from('conversations')
+              .update({
+                product_group: classificationResult.productCategory,
+                classification_updated_at: new Date().toISOString(),
+                confidence_score: classificationResult.confidence || 0
+              })
+              .eq('id', conversationId);
+              
+            // Log da mudança de classificação
+            await supabase.from('classification_history').insert({
+              conversation_id: conversationId,
+              old_product_group: currentConversation.product_group,
+              new_product_group: classificationResult.productCategory,
+              confidence_score: classificationResult.confidence || 0,
+              analysis_data: { 
+                classification_result: classificationResult,
+                message: messageContent 
+              }
+            });
+            
+            console.log(`✅ Conversation category updated and logged`);
+          }
+        } catch (updateError) {
+          console.error('Error updating conversation category:', updateError);
+        }
+      }
     }
 
     // 2. Extrair dados do cliente
