@@ -38,10 +38,44 @@ Deno.serve(async (req) => {
     // Usar product_group da conversa como prioritário
     const conversationCategory = conversation.product_group || productCategory;
     
-    if (conversationCategory && !['indefinido', 'saudacao', 'institucional'].includes(conversationCategory)) {
+    // Validar se agente atual está correto para a categoria
+    const shouldUseSpecialist = conversationCategory && !['indefinido', 'saudacao', 'institucional'].includes(conversationCategory);
+    
+    if (shouldUseSpecialist) {
       agentType = 'specialist';
       agentCategory = conversationCategory;
       console.log(`🎯 Using specialist agent for category: ${conversationCategory}`);
+      
+      // Verificar se agente atual é o correto
+      if (conversation.current_agent_id) {
+        const { data: currentAgent } = await supabase
+          .from('agent_configs')
+          .select('agent_type, product_category, agent_name')
+          .eq('id', conversation.current_agent_id)
+          .single();
+        
+        if (currentAgent) {
+          const isCorrectAgent = currentAgent.agent_type === 'specialist' && currentAgent.product_category === conversationCategory;
+          if (!isCorrectAgent) {
+            console.log(`⚠️ Agent mismatch detected! Current: ${currentAgent.agent_name} (${currentAgent.agent_type}/${currentAgent.product_category}) | Expected: specialist/${conversationCategory}`);
+            
+            // Log de alerta para agente incorreto
+            await supabase.from('system_logs').insert({
+              level: 'warning',
+              source: 'intelligent-agent-response',
+              message: 'Agent mismatch detected - wrong agent responding',
+              data: {
+                conversation_id: conversationId,
+                expected_category: conversationCategory,
+                current_agent_id: conversation.current_agent_id,
+                current_agent_type: currentAgent.agent_type,
+                current_agent_category: currentAgent.product_category,
+                message_preview: message.substring(0, 100)
+              }
+            });
+          }
+        }
+      }
     } else {
       console.log(`📞 Using general agent for category: ${conversationCategory}`);
     }
@@ -205,6 +239,29 @@ RESPOSTA: Responda de forma natural e personalizada, considerando todo o context
           new_agent_name: finalAgent.agent_name,
           new_agent_type: finalAgent.agent_type,
           category: conversationCategory
+        }
+      });
+    }
+    
+    // Validação final: verificar se agente usado é apropriado para categoria
+    const isCorrectAgentType = (
+      (finalAgent.agent_type === 'specialist' && finalAgent.product_category === conversationCategory) ||
+      (finalAgent.agent_type === 'general' && ['indefinido', 'saudacao', 'institucional'].includes(conversationCategory))
+    );
+    
+    if (!isCorrectAgentType) {
+      await supabase.from('system_logs').insert({
+        level: 'warning',
+        source: 'intelligent-agent-response',
+        message: 'Incorrect agent type used for response',
+        data: {
+          conversation_id: conversationId,
+          agent_id: finalAgent.id,
+          agent_name: finalAgent.agent_name,
+          agent_type: finalAgent.agent_type,
+          agent_category: finalAgent.product_category,
+          conversation_category: conversationCategory,
+          response_preview: response.substring(0, 100)
         }
       });
     }

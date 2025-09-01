@@ -262,8 +262,8 @@ async function processMessageWithAI(conversationId: string, messageContent: stri
     } else {
       console.log('Classification result:', classificationResult);
       
-      // Atualizar product_group da conversa se classificação foi bem-sucedida
-      if (classificationResult?.productCategory && classificationResult.productCategory !== 'indefinido') {
+      // Atualizar product_group da conversa e fazer handoff automático se classificação foi bem-sucedida
+      if (classificationResult?.productGroup && classificationResult.productGroup !== 'indefinido') {
         try {
           const { data: currentConversation } = await supabase
             .from('conversations')
@@ -272,15 +272,19 @@ async function processMessageWithAI(conversationId: string, messageContent: stri
             .single();
             
           // Só atualizar se houve mudança de categoria
-          if (currentConversation && currentConversation.product_group !== classificationResult.productCategory) {
-            console.log(`🔄 Updating conversation category: ${currentConversation.product_group} → ${classificationResult.productCategory}`);
+          if (currentConversation && currentConversation.product_group !== classificationResult.productGroup) {
+            console.log(`🔄 Updating conversation category: ${currentConversation.product_group} → ${classificationResult.productGroup}`);
+            
+            // Buscar agente especialista para nova categoria
+            const newAgentId = await performAgentHandoff(conversationId, classificationResult.productGroup, currentConversation.current_agent_id);
             
             await supabase
               .from('conversations')
               .update({
-                product_group: classificationResult.productCategory,
+                product_group: classificationResult.productGroup,
                 classification_updated_at: new Date().toISOString(),
-                confidence_score: classificationResult.confidence || 0
+                confidence_score: classificationResult.confidence || 0,
+                current_agent_id: newAgentId
               })
               .eq('id', conversationId);
               
@@ -288,15 +292,17 @@ async function processMessageWithAI(conversationId: string, messageContent: stri
             await supabase.from('classification_history').insert({
               conversation_id: conversationId,
               old_product_group: currentConversation.product_group,
-              new_product_group: classificationResult.productCategory,
+              new_product_group: classificationResult.productGroup,
               confidence_score: classificationResult.confidence || 0,
               analysis_data: { 
                 classification_result: classificationResult,
-                message: messageContent 
+                message: messageContent,
+                old_agent_id: currentConversation.current_agent_id,
+                new_agent_id: newAgentId
               }
             });
             
-            console.log(`✅ Conversation category updated and logged`);
+            console.log(`✅ Conversation category updated and agent handoff completed`);
           }
         } catch (updateError) {
           console.error('Error updating conversation category:', updateError);
@@ -325,7 +331,7 @@ async function processMessageWithAI(conversationId: string, messageContent: stri
       body: {
         conversationId,
         message: messageContent,
-        productCategory: classificationResult?.productCategory || 'indefinido'
+        productCategory: classificationResult?.productGroup || 'indefinido'
       }
     });
 
@@ -472,5 +478,78 @@ async function handleStatusUpdate(status: any) {
         status: messageStatus
       }
     });
+  }
+}
+
+// Função para realizar handoff automático de agente
+async function performAgentHandoff(conversationId: string, newCategory: string, currentAgentId: string | null): Promise<string> {
+  try {
+    console.log(`🔄 Performing agent handoff for category: ${newCategory}`);
+    
+    // Buscar agente especialista para a nova categoria
+    let { data: specialistAgent } = await supabase
+      .from('agent_configs')
+      .select('id, agent_name, agent_type, product_category')
+      .eq('agent_type', 'specialist')
+      .eq('product_category', newCategory)
+      .eq('is_active', true)
+      .single();
+    
+    let newAgentId = currentAgentId;
+    
+    if (specialistAgent) {
+      newAgentId = specialistAgent.id;
+      console.log(`🎯 Found specialist agent: ${specialistAgent.agent_name} for category: ${newCategory}`);
+    } else {
+      // Se não há especialista, usar agente geral
+      const { data: generalAgent } = await supabase
+        .from('agent_configs')
+        .select('id, agent_name, agent_type')
+        .eq('agent_type', 'general')
+        .eq('is_active', true)
+        .single();
+      
+      if (generalAgent) {
+        newAgentId = generalAgent.id;
+        console.log(`📞 Using general agent: ${generalAgent.agent_name} (no specialist found for ${newCategory})`);
+      }
+    }
+    
+    // Log do handoff se houve mudança de agente
+    if (newAgentId !== currentAgentId) {
+      await supabase.from('system_logs').insert({
+        level: 'info',
+        source: 'whatsapp-webhook-handoff',
+        message: 'Automatic agent handoff performed',
+        data: {
+          conversation_id: conversationId,
+          old_agent_id: currentAgentId,
+          new_agent_id: newAgentId,
+          category: newCategory,
+          specialist_found: !!specialistAgent
+        }
+      });
+      
+      console.log(`✅ Agent handoff completed: ${currentAgentId || 'none'} → ${newAgentId}`);
+    }
+    
+    return newAgentId || currentAgentId || '';
+    
+  } catch (error) {
+    console.error('Error performing agent handoff:', error);
+    
+    await supabase.from('system_logs').insert({
+      level: 'error',
+      source: 'whatsapp-webhook-handoff',
+      message: 'Agent handoff failed',
+      data: { 
+        error: error.message,
+        conversation_id: conversationId,
+        category: newCategory
+      }
+    });
+    
+    // Retornar agente atual em caso de erro
+    return currentAgentId || '';
   }
 }
