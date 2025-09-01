@@ -61,52 +61,42 @@ export function AddAtendenteDialog({
   const onSubmit = async (data: FormData) => {
     setIsLoading(true);
     try {
-      console.log('🔄 Criando convite para atendente:', data);
+      console.log('🔄 Enviando convite real para atendente:', data);
 
-      // 1. Primeiro, verificar se o email já existe na tabela profiles
-      const { data: existingProfile, error: checkError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('email', data.email)
-        .single();
-      
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw new Error('Erro ao verificar usuários existentes');
-      }
-
-      const userExists = !!existingProfile;
-      
-      if (userExists) {
-        toast({
-          title: "Erro",
-          description: "Um usuário com este email já existe no sistema",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // 2. Enviar convite via email (Supabase Auth)
-      // Nota: Em um ambiente real, você usaria supabase.auth.admin.inviteUserByEmail
-      // Por agora, vamos criar um registro pendente e notificar o admin
-      
-      // 3. Por enquanto, simular o processo de convite
-      // Em produção, implementar edge function para envio de email
-      
-      toast({
-        title: "Convite Enviado!",
-        description: `Convite enviado para ${data.email}. Instruções de acesso foram enviadas por email.`,
+      // Chamar a edge function para enviar o convite real
+      const { data: result, error } = await supabase.functions.invoke('send-invite-email', {
+        body: {
+          email: data.email,
+          displayName: data.displayName,
+          department: data.department,
+          role: data.role
+        }
       });
 
+      if (error) {
+        console.error('Erro ao enviar convite:', error);
+        throw new Error(error.message || 'Erro ao enviar convite');
+      }
+
+      if (result?.error) {
+        throw new Error(result.error);
+      }
+      
+      toast({
+        title: "Convite enviado!",
+        description: `Convite enviado para ${data.email}. O usuário receberá instruções por email para configurar sua conta.`,
+      });
+      
       // Reset form and close dialog
       form.reset();
       onOpenChange(false);
       onSuccess?.();
 
     } catch (error: any) {
-      console.error('❌ Error creating atendente:', error);
+      console.error('❌ Erro ao enviar convite:', error);
       toast({
         title: "Erro",
-        description: error.message || "Erro ao enviar convite",
+        description: error.message || "Erro ao enviar convite. Tente novamente.",
         variant: "destructive",
       });
     } finally {
