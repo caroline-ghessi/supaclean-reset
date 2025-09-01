@@ -13,6 +13,7 @@ export interface AgentConfig {
   max_tokens: number;
   is_spy: boolean;
   description?: string;
+  llm_model?: string;
   created_at: string;
   updated_at: string;
 }
