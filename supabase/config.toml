@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.process-knowledge-file]
 verify_jwt = false
+
+[functions.firecrawl-scrape]
+verify_jwt = false
