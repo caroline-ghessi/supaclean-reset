@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Search, Filter, Plus } from 'lucide-react';
 import { useConversations } from '@/hooks/useConversations';
 import { useRealtimeConversations } from '@/hooks/useRealtimeSubscription';
@@ -20,13 +21,16 @@ export function WhatsAppConversationList({ onSelect, selectedId }: WhatsAppConve
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<ConversationFilters>({});
 
-  // Combine search with filters
-  const combinedFilters = {
-    ...filters,
-    ...(searchTerm && { search: searchTerm })
-  };
+  // Debounce search term to avoid excessive API calls
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const { data: conversations, isLoading } = useConversations();
+  // Combine search with filters
+  const combinedFilters = useMemo(() => ({
+    ...filters,
+    ...(debouncedSearchTerm && { search: debouncedSearchTerm })
+  }), [filters, debouncedSearchTerm]);
+
+  const { data: conversations, isLoading } = useConversations(combinedFilters);
   useRealtimeConversations();
 
   const handleFilterChange = (key: keyof ConversationFilters, value: string | string[]) => {

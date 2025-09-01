@@ -2,20 +2,51 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { logSystem } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { ConversationFilters } from '@/types/conversation.types';
 
-export function useConversations() {
+export function useConversations(filters?: ConversationFilters) {
   return useQuery({
-    queryKey: ['conversations'],
+    queryKey: ['conversations', filters],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('conversations')
         .select(`
           *,
           lead_distributions(id, sent_at, vendor_id, vendors(name))
         `)
-        .eq('source', 'whatsapp')
-      .order('last_message_at', { ascending: false })
-      .limit(50);
+        .eq('source', 'whatsapp');
+
+      // Apply search filter
+      if (filters?.search) {
+        query = query.or(
+          `customer_name.ilike.%${filters.search}%,whatsapp_name.ilike.%${filters.search}%,whatsapp_number.ilike.%${filters.search}%`
+        );
+      }
+
+      // Apply status filter
+      if (filters?.status && filters.status.length > 0) {
+        query = query.in('status', filters.status);
+      }
+
+      // Apply product group filter
+      if (filters?.product_group && filters.product_group.length > 0) {
+        query = query.in('product_group', filters.product_group);
+      }
+
+      // Apply lead temperature filter
+      if (filters?.lead_temperature && filters.lead_temperature.length > 0) {
+        query = query.in('lead_temperature', filters.lead_temperature);
+      }
+
+      // Apply date range filter
+      if (filters?.date_range) {
+        query = query.gte('created_at', filters.date_range.start.toISOString());
+        query = query.lte('created_at', filters.date_range.end.toISOString());
+      }
+
+      const { data, error } = await query
+        .order('last_message_at', { ascending: false })
+        .limit(100);
 
       if (error) {
         await logSystem('error', 'useConversations', 'Failed to fetch conversations', error);
