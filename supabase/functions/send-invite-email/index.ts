@@ -41,19 +41,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Processando convite para:', { email, displayName, role });
 
-    // Verificar se o usuário já existe
-    const { data: existingUser } = await supabaseAdmin.auth.admin.getUserByEmail(email);
-    
-    if (existingUser.user) {
-      return new Response(
-        JSON.stringify({ error: 'Usuário já existe no sistema' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
     // Criar convite no Supabase Auth
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
