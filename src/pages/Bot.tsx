@@ -149,7 +149,20 @@ export default function BotPage() {
         {activeTab === 'llm' && <LLMSection />}
         {activeTab === 'rag' && <RAGSection />}
         {activeTab === 'test' && <TestSection />}
-        {activeTab === 'config' && <AgentConfigurationSection />}
+        {activeTab === 'config' && (
+          <div className="text-center py-12">
+            <h3 className="text-lg font-semibold mb-2">Configuração Unificada</h3>
+            <p className="text-muted-foreground mb-4">
+              O gerenciamento de prompts agora está centralizado na aba "Agentes".
+            </p>
+            <button 
+              onClick={() => setActiveTab('agents')} 
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+            >
+              Ir para Agentes
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

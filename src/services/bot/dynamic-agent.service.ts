@@ -49,7 +49,7 @@ export class DynamicAgentService {
       // Load active prompt for category from /bot configuration
       const agentConfig = await this.loadAgentPrompt(category);
       
-      if (!agentConfig || !agentConfig.system_prompt) {
+      if (!agentConfig || !agentConfig.knowledge_base) {
         return this.getDefaultResponse();
       }
 
@@ -64,7 +64,7 @@ export class DynamicAgentService {
 
       // Process template with enhanced context
       const processedPrompt = this.processTemplate(
-        agentConfig.system_prompt,
+        agentConfig.knowledge_base,
         enhancedContext
       );
 
@@ -72,7 +72,7 @@ export class DynamicAgentService {
         text: processedPrompt,
         quickReplies: [],
         metadata: {
-          agentType: agentConfig.agent_type,
+          agentType: agentConfig.agent_type || 'specialist',
           knowledgeUsed: relevantKnowledge ? true : false
         }
       };
@@ -89,20 +89,20 @@ export class DynamicAgentService {
       return this.promptCache.get(cacheKey);
     }
 
-    // Load from agent_configs table (configured in /bot page)
+    // Load from agent_prompts table (configured in /bot agentes tab)
     const { data } = await supabase
-      .from('agent_configs')
+      .from('agent_prompts')
       .select('*')
-      .eq('product_category', category)
+      .eq('category', category)
       .eq('is_active', true)
       .single();
 
     // Fallback to general agent if no specialist found
     if (!data) {
       const { data: generalAgent } = await supabase
-        .from('agent_configs')
+        .from('agent_prompts')
         .select('*')
-        .eq('agent_type', 'general')
+        .eq('category', 'geral' as ProductCategory)
         .eq('is_active', true)
         .single();
       
@@ -232,29 +232,29 @@ export class DynamicAgentService {
 
   // Method to test prompts in admin
   async testPrompt(
-    agentConfigId: string,
+    agentPromptId: string,
     message: string,
     testContext: any
   ): Promise<any> {
-    const { data: agentConfig } = await supabase
-      .from('agent_configs')
+    const { data: agentPrompt } = await supabase
+      .from('agent_prompts')
       .select('*')
-      .eq('id', agentConfigId)
+      .eq('id', agentPromptId)
       .single();
 
-    if (!agentConfig) {
-      throw new Error('Agent config not found');
+    if (!agentPrompt) {
+      throw new Error('Agent prompt not found');
     }
 
     const processedPrompt = this.processTemplate(
-      agentConfig.system_prompt || '',
+      agentPrompt.knowledge_base || '',
       testContext
     );
 
     return {
       response: processedPrompt,
       metadata: {
-        agentType: agentConfig.agent_type,
+        agentType: agentPrompt.agent_type || 'specialist',
         contextUsed: testContext
       }
     };
