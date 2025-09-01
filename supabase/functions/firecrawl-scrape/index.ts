@@ -16,6 +16,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    console.log('🚀 Firecrawl function started');
+    console.log('📡 Environment check:', {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseKey: !!supabaseServiceKey,
+      hasFirecrawlKey: !!firecrawlApiKey
+    });
+
+    if (!firecrawlApiKey) {
+      throw new Error('FIRECRAWL_API_KEY not configured');
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { url, agentCategory, mode, options = {} } = await req.json();
 
@@ -48,8 +59,10 @@ Deno.serve(async (req) => {
     }
 
     console.log('📤 Firecrawl payload:', JSON.stringify(firecrawlPayload, null, 2));
+    console.log('🌐 Firecrawl endpoint:', firecrawlEndpoint);
 
     // Call Firecrawl API
+    console.log('⏳ Making request to Firecrawl...');
     const firecrawlResponse = await fetch(firecrawlEndpoint, {
       method: 'POST',
       headers: {
@@ -59,17 +72,23 @@ Deno.serve(async (req) => {
       body: JSON.stringify(firecrawlPayload)
     });
 
+    console.log('📡 Firecrawl response status:', firecrawlResponse.status);
+    console.log('📡 Firecrawl response headers:', Object.fromEntries(firecrawlResponse.headers.entries()));
+
     if (!firecrawlResponse.ok) {
       const errorText = await firecrawlResponse.text();
       console.error('❌ Firecrawl API error:', errorText);
+      console.error('❌ Response status:', firecrawlResponse.status);
+      console.error('❌ Response status text:', firecrawlResponse.statusText);
       throw new Error(`Firecrawl API error: ${firecrawlResponse.status} - ${errorText}`);
     }
 
     const firecrawlData = await firecrawlResponse.json();
-    console.log('✅ Firecrawl response received');
+    console.log('✅ Firecrawl response received:', JSON.stringify(firecrawlData, null, 2));
 
     // ✅ PROCESSAMENTO CORRIGIDO DA RESPOSTA V2
     if (!firecrawlData.success) {
+      console.error('❌ Firecrawl returned success=false:', firecrawlData);
       throw new Error(`Firecrawl failed: ${firecrawlData.error || 'Unknown error'}`);
     }
 
