@@ -15,8 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useSpecialistAgents, useAgentsByType } from '@/hooks/useAgentConfigs';
-import { useAgentPrompts } from '@/hooks/useAgentPrompts';
+import { useAgentsByType } from '@/hooks/useAgentConfigs';
 import { useGeneralAgentManager } from '@/hooks/useGeneralAgentManager';
 import { SpyAgentCard } from './SpyAgentCard';
 import { EnhancedPromptEditor } from './EnhancedPromptEditor';
@@ -131,36 +130,20 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
   } = useGeneralAgentManager();
   
   // Buscar agentes reais do banco de dados
-  const { data: realSpecialistAgents, isLoading: loadingSpecialists } = useSpecialistAgents();
-  const { data: specialistPrompts, isLoading: loadingPrompts } = useAgentPrompts();
+  const { data: specialistAgents, isLoading: loadingSpecialists } = useAgentsByType('specialist');
   const { data: classifierAgents, isLoading: loadingClassifiers } = useAgentsByType('classifier');
   const { data: extractorAgents, isLoading: loadingExtractors } = useAgentsByType('extractor');
   const { data: leadScorerAgents, isLoading: loadingLeadScorers } = useAgentsByType('lead_scorer');
-  const { data: configSpecialistAgents, isLoading: loadingConfigSpecialists } = useAgentsByType('specialist');
   
-  // Mapear agentes reais para o formato esperado
-  const mappedSpecialistAgents = [
-    // Agentes da tabela agent_prompts (antigos)
-    ...(specialistPrompts?.filter(prompt => prompt.agent_type === 'specialist').map(prompt => ({
-      id: prompt.id,
-      name: prompt.name,
-      icon: getIconForCategory(prompt.category),
-      conversations: Math.floor(Math.random() * 50), // Temporário
-      status: prompt.is_active ? 'active' as const : 'maintenance' as const,
-      description: prompt.description || 'Agente especializado',
-      source: 'prompts' as const
-    })) || []),
-    // Agentes da tabela agent_configs (novos)
-    ...(configSpecialistAgents?.map(agent => ({
-      id: agent.id,
-      name: agent.agent_name,
-      icon: getIconForCategory(agent.product_category),
-      conversations: Math.floor(Math.random() * 50), // Temporário
-      status: agent.is_active ? 'active' as const : 'maintenance' as const,
-      description: agent.description || 'Agente especializado',
-      source: 'configs' as const
-    })) || [])
-  ];
+  // Mapear agentes especializados para o formato esperado
+  const mappedSpecialistAgents = specialistAgents?.map(agent => ({
+    id: agent.id,
+    name: agent.agent_name,
+    icon: getIconForCategory(agent.product_category),
+    conversations: Math.floor(Math.random() * 50), // Temporário
+    status: agent.is_active ? 'active' as const : 'maintenance' as const,
+    description: agent.description || 'Agente especializado'
+  })) || [];
   
   const mappedSpyAgents = [
     ...(classifierAgents?.map(agent => ({
@@ -469,7 +452,7 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                   </CardTitle>
                 </CardHeader>
                  <CardContent className="space-y-2">
-                   {(loadingSpecialists || loadingConfigSpecialists) ? (
+                   {loadingSpecialists ? (
                     <div className="space-y-2">
                       {[1, 2, 3].map(i => (
                         <div key={i} className="h-16 bg-muted rounded animate-pulse" />
@@ -501,40 +484,22 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
             {/* Área Principal - Editor de Prompt Especialista */}
             <div className="lg:col-span-2">
               {selectedAgent && selectedAgentType === 'specialist' ? (
-                // Verificar se é agente da tabela agent_configs ou agent_prompts
-                (() => {
-                  const selectedAgentData = mappedSpecialistAgents.find(a => a.id === selectedAgent);
-                  
-                  if (selectedAgentData?.source === 'configs') {
-                    // Usar editor de agente da tabela agent_configs
-                    return (
-                      <div className="space-y-6">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                              <Brain className="w-5 h-5" />
-                              Editor do Agente Especialista
-                            </CardTitle>
-                            <CardDescription>
-                              Configure o prompt, LLM e base de conhecimento do agente especialista.
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <AgentConfigEditor agentId={selectedAgent} />
-                          </CardContent>
-                        </Card>
-                      </div>
-                    );
-                  } else {
-                    // Usar editor antigo para agent_prompts
-                    return (
-                      <PromptAgentEditor 
-                        selectedAgent={selectedAgent} 
-                        category={specialistPrompts?.find(p => p.id === selectedAgent)?.category || 'telha_shingle'}
-                      />
-                    );
-                  }
-                })()
+                <div className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <Brain className="w-5 h-5" />
+                        Editor do Agente Especialista
+                      </CardTitle>
+                      <CardDescription>
+                        Configure o prompt, LLM e base de conhecimento do agente especialista.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <AgentConfigEditor agentId={selectedAgent} />
+                    </CardContent>
+                  </Card>
+                </div>
               ) : (
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12 text-center">
