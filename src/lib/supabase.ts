@@ -1,21 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/types/database.types';
+// Usar o cliente principal do Supabase para evitar múltiplas instâncias
+import { supabase } from '@/integrations/supabase/client';
 
-const supabaseUrl = 'https://groqsnnytvjabgeaekkw.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdyb3Fzbm55dHZqYWJnZWFla2t3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1OTU3ODcsImV4cCI6MjA2ODE3MTc4N30.HWBJVbSSShx1P8bqa4dvO9jCsCDybt2rhgPPBy8zEVs';
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10,
-    },
-  },
-});
+// Re-export o cliente para manter compatibilidade
+export { supabase };
 
 // Helper para logs estruturados
 export async function logSystem(
