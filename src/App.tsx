@@ -9,6 +9,7 @@ import Dashboard from "@/pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import { ConversationsPage } from "@/pages/Conversations";
 import { VendedoresPage } from "@/pages/Vendedores";
+import AtendentesPage from "@/pages/Atendentes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BotPage from "@/pages/Bot";
 import AuthPage from "@/pages/Auth";
@@ -63,7 +64,7 @@ const App: React.FC = () => {
                   <Route path="/bot" element={<BotPage />} />
                   <Route path="/vendedores" element={<VendedoresPage />} />
                   <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />
-                  <Route path="/atendentes" element={<div className="p-6">Atendentes - Em desenvolvimento</div>} />
+                  <Route path="/atendentes" element={<AtendentesPage />} />
                   <Route path="/templates" element={<div className="p-6">Templates - Em desenvolvimento</div>} />
                   <Route path="/configuracoes" element={<div className="p-6">Configurações - Em desenvolvimento</div>} />
                   <Route path="/logs" element={<div className="p-6">Logs - Em desenvolvimento</div>} />
