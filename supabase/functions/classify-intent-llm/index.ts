@@ -123,27 +123,87 @@ Categoria atual: ${currentProductGroup || 'indefinido'}`;
     }
 
     console.log(`Classification result: ${classification}`);
+    console.log(`Current product group: ${currentProductGroup}`);
 
-    // Mapear nomes para valores do banco
+    // Mapear nomes para valores do banco - incluindo todas as variações possíveis
     const productGroupMapping: Record<string, string> = {
+      // Saudação e institucional
       'saudacao': 'saudacao',
+      'saudação': 'saudacao',
       'institucional': 'institucional',
+      
+      // Drywall e divisórias - todas as variações
       'drywall': 'drywall_divisorias',
       'drywall_divisorias': 'drywall_divisorias',
-      'telha_shingle': 'telha_shingle',
-      'telha': 'telha_shingle',
+      'drywall e divisorias': 'drywall_divisorias',
+      'drywall e divisórias': 'drywall_divisorias',
+      'divisorias': 'drywall_divisorias',
+      'divisórias': 'drywall_divisorias',
+      
+      // Energia solar - todas as variações
       'energia_solar': 'energia_solar',
       'energia solar': 'energia_solar',
+      'energia solar e baterias': 'energia_solar',
+      'energia solar e backup': 'energia_solar',
+      'solar': 'energia_solar',
+      'fotovoltaico': 'energia_solar',
+      'painel solar': 'energia_solar',
+      'paineis solares': 'energia_solar',
+      'sistema solar': 'energia_solar',
+      'baterias': 'energia_solar',
+      'backup de energia': 'energia_solar',
+      
+      // Telha shingle - todas as variações
+      'telha_shingle': 'telha_shingle',
+      'telha shingle': 'telha_shingle',
+      'telha': 'telha_shingle',
+      'telhas': 'telha_shingle',
+      'shingle': 'telha_shingle',
+      'cobertura': 'telha_shingle',
+      'telhado': 'telha_shingle',
+      
+      // Steel frame - todas as variações
       'steel_frame': 'steel_frame',
       'steel frame': 'steel_frame',
+      'steel-frame': 'steel_frame',
+      'estrutura metalica': 'steel_frame',
+      'estrutura metálica': 'steel_frame',
+      'light steel frame': 'steel_frame',
+      'lsf': 'steel_frame',
+      
+      // Outras categorias
       'acabamentos': 'acabamentos',
+      'acabamento': 'acabamentos',
+      'revestimento': 'acabamentos',
+      'revestimentos': 'acabamentos',
+      
       'ferramentas': 'ferramentas',
+      'ferramenta': 'ferramentas',
+      'equipamentos': 'ferramentas',
+      'equipamento': 'ferramentas',
+      
       'forros': 'forros',
+      'forro': 'forros',
+      'teto': 'forros',
+      'gesso': 'forros',
+      
       'pisos': 'pisos',
-      'indefinido': 'indefinido'
+      'piso': 'pisos',
+      'piso vinilico': 'pisos',
+      'piso vinílico': 'pisos',
+      'revestimento de piso': 'pisos',
+      
+      // Fallback
+      'indefinido': 'indefinido',
+      'geral': 'indefinido'
     };
 
     const finalProductGroup = productGroupMapping[classification] || 'indefinido';
+    
+    console.log(`Mapped result: ${classification} -> ${finalProductGroup}`);
+    if (!productGroupMapping[classification]) {
+      console.warn(`Classification "${classification}" not found in mapping, using indefinido`);
+    }
 
     // Calcular confidence score baseado na clareza da classificação
     let confidenceScore = 0.8;
