@@ -41,6 +41,12 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Processando convite para:', { email, displayName, role });
 
+    // Determinar URL de redirecionamento
+    const baseUrl = Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com') || 'http://localhost:3000';
+    const redirectUrl = `${baseUrl}/set-password`;
+
+    console.log('URL de redirecionamento:', redirectUrl);
+
     // Criar convite no Supabase Auth
     const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       email,
@@ -50,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
           department: department || '',
           invited_role: role
         },
-        redirectTo: `${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com') || 'http://localhost:3000'}/auth`
+        redirectTo: redirectUrl
       }
     );
 
@@ -86,7 +92,7 @@ const handler = async (req: Request): Promise<Response> => {
           </p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${supabaseUrl}/auth/v1/verify?token=${inviteData.user?.email_confirmation_token}&type=invite&redirect_to=${Deno.env.get('SUPABASE_URL')?.replace('.supabase.co', '.lovableproject.com') || 'http://localhost:3000'}/auth" 
+            <a href="${supabaseUrl}/auth/v1/verify?token=${inviteData.user?.email_confirmation_token}&type=invite&redirect_to=${redirectUrl}" 
                style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; display: inline-block;">
               Aceitar Convite e Configurar Senha
             </a>

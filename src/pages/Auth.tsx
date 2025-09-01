@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Bot } from 'lucide-react';
 
 export default function AuthPage() {
@@ -17,13 +17,26 @@ export default function AuthPage() {
   const [message, setMessage] = useState('');
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Redirect if already authenticated
   useEffect(() => {
     if (user) {
       navigate('/');
     }
-  }, [user, navigate]);
+
+    // Verificar se há erro na URL (ex: erro de convite)
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    
+    if (error) {
+      if (error === 'access_denied' && errorDescription?.includes('Email link is invalid')) {
+        setError('O link de convite expirou ou já foi usado. Solicite um novo convite.');
+      } else {
+        setError(errorDescription || 'Erro no processo de autenticação.');
+      }
+    }
+  }, [user, navigate, searchParams]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +47,13 @@ export default function AuthPage() {
     const { error } = await signIn(email, password);
     
     if (error) {
-      setError(error.message);
+      if (error.message.includes('Invalid login credentials')) {
+        setError('Email ou senha incorretos. Verifique suas credenciais.');
+      } else if (error.message.includes('Email not confirmed')) {
+        setError('Email não confirmado. Verifique sua caixa de entrada e clique no link de confirmação.');
+      } else {
+        setError(error.message);
+      }
     } else {
       navigate('/');
     }
@@ -51,7 +70,11 @@ export default function AuthPage() {
     const { error } = await signUp(email, password);
     
     if (error) {
-      setError(error.message);
+      if (error.message.includes('User already registered')) {
+        setError('Este email já está cadastrado. Use a aba "Entrar" para fazer login.');
+      } else {
+        setError(error.message);
+      }
     } else {
       setMessage('Verifique seu email para confirmar a conta e então faça login.');
     }

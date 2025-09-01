@@ -13,6 +13,7 @@ import AtendentesPage from "@/pages/Atendentes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BotPage from "@/pages/Bot";
 import AuthPage from "@/pages/Auth";
+import SetPasswordPage from "@/pages/SetPassword";
 import LeadsQuentes from "@/pages/LeadsQuentes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
@@ -35,8 +36,9 @@ function AppContent() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public auth route */}
+        {/* Public auth routes */}
         <Route path="/auth" element={<AuthPage />} />
+        <Route path="/set-password" element={<SetPasswordPage />} />
         
         {/* Protected full-screen routes */}
         <Route 
