@@ -1554,6 +1554,7 @@ export type Database = {
         | "saudacao"
         | "institucional"
         | "indefinido"
+        | "geral"
       sender_type: "customer" | "bot" | "agent" | "system"
     }
     CompositeTypes: {
@@ -1712,6 +1713,7 @@ export const Constants = {
         "saudacao",
         "institucional",
         "indefinido",
+        "geral",
       ],
       sender_type: ["customer", "bot", "agent", "system"],
     },

@@ -10,7 +10,7 @@ export function useAgentPrompt(category: ProductCategory) {
       const { data, error } = await supabase
         .from('agent_prompts')
         .select('*')
-        .eq('category', category)
+        .eq('category', category as any) // Type will be updated after DB sync
         .eq('is_active', true)
         .single();
 
@@ -48,14 +48,14 @@ export function useGeneralAgent() {
       const { data, error } = await supabase
         .from('agent_prompts')
         .select('*')
-        .eq('category', 'geral')
+        .eq('category', 'geral' as any) // Type will be updated after DB sync
         .eq('is_active', true)
         .single();
 
       if (error && error.code === 'PGRST116') {
         // No general agent found, create default one
         const defaultGeneralAgent = {
-          category: 'geral' as any,
+          category: 'geral' as any, // Type will be updated after DB sync
           name: 'Atendimento Geral',
           description: 'Agente responsável pelo atendimento inicial e casos não especializados',
           knowledge_base: `Você é um assistente de atendimento geral especializado em energia solar e construção civil.
