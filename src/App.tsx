@@ -17,12 +17,13 @@ import LeadsQuentes from "@/pages/LeadsQuentes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
-// Create QueryClient with error handling
+// Create QueryClient outside component to prevent recreation
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
     },
     mutations: {
       retry: 1,
@@ -30,50 +31,55 @@ const queryClient = new QueryClient({
   },
 });
 
+function AppContent() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public auth route */}
+        <Route path="/auth" element={<AuthPage />} />
+        
+        {/* Protected full-screen routes */}
+        <Route 
+          path="/conversas" 
+          element={
+            <ProtectedRoute>
+              <div className="h-screen">
+                <ConversationsPage />
+              </div>
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Protected layout-wrapped routes */}
+        <Route path="/" element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<Dashboard />} />
+          <Route path="/leads-quentes" element={<LeadsQuentes />} />
+          <Route path="/bot" element={<BotPage />} />
+          <Route path="/vendedores" element={<VendedoresPage />} />
+          <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />
+          <Route path="/atendentes" element={<AtendentesPage />} />
+          <Route path="/templates" element={<div className="p-6">Templates - Em desenvolvimento</div>} />
+          <Route path="/configuracoes" element={<div className="p-6">Configurações - Em desenvolvimento</div>} />
+          <Route path="/logs" element={<div className="p-6">Logs - Em desenvolvimento</div>} />
+        </Route>
+        
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
 const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
-            <BrowserRouter>
-              <Routes>
-                {/* Public auth route */}
-                <Route path="/auth" element={<AuthPage />} />
-                
-                {/* Protected full-screen routes */}
-                <Route 
-                  path="/conversas" 
-                  element={
-                    <ProtectedRoute>
-                      <div className="h-screen">
-                        <ConversationsPage />
-                      </div>
-                    </ProtectedRoute>
-                  } 
-                />
-                
-                {/* Protected layout-wrapped routes */}
-                <Route path="/" element={
-                  <ProtectedRoute>
-                    <Layout />
-                  </ProtectedRoute>
-                }>
-                  <Route index element={<Dashboard />} />
-                  <Route path="/leads-quentes" element={<LeadsQuentes />} />
-                  <Route path="/bot" element={<BotPage />} />
-                  <Route path="/vendedores" element={<VendedoresPage />} />
-                  <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />
-                  <Route path="/atendentes" element={<AtendentesPage />} />
-                  <Route path="/templates" element={<div className="p-6">Templates - Em desenvolvimento</div>} />
-                  <Route path="/configuracoes" element={<div className="p-6">Configurações - Em desenvolvimento</div>} />
-                  <Route path="/logs" element={<div className="p-6">Logs - Em desenvolvimento</div>} />
-                </Route>
-                
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-            
+            <AppContent />
             <Toaster />
             <Sonner />
           </TooltipProvider>
