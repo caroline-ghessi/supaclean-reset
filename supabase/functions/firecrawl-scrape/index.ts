@@ -61,29 +61,50 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     console.log(`🔥 Starting Firecrawl ${mode} for URL: ${url}, Agent: ${agentCategory}`);
 
-    // Prepare Firecrawl API request for v2 - PAYLOAD SIMPLIFICADO
+    // Prepare Firecrawl API request for v2 - CORRIGIDO CONFORME DOCUMENTAÇÃO
     const firecrawlEndpoint = mode === 'scrape' 
       ? 'https://api.firecrawl.dev/v2/scrape' 
       : 'https://api.firecrawl.dev/v2/crawl';
 
     // ✅ PAYLOAD CORRIGIDO PARA V2 - APENAS PARÂMETROS VÁLIDOS
-    const firecrawlPayload = {
-      url,
-      // Apenas formats é permitido para configurar saída
-      formats: ['markdown']
-    };
-
-    // Configurações específicas para crawl
-    if (mode === 'crawl') {
-      // Apenas limit é permitido para crawl na v2
-      firecrawlPayload.limit = options.limit || 10;
+    let firecrawlPayload;
+    
+    if (mode === 'scrape') {
+      // Para scrape: pode usar formats (baseado na documentação)
+      firecrawlPayload = {
+        url,
+        formats: [{ type: 'markdown' }], // Formato correto conforme docs v2
+        onlyMainContent: true,
+        removeBase64Images: true
+      };
+    } else {
+      // Para crawl: NÃO pode usar formats (causava o erro)
+      firecrawlPayload = {
+        url,
+        limit: options.maxDepth ? Math.min(options.maxDepth * 5, 100) : 10
+      };
       
-      // Padrões de inclusão/exclusão são aplicados via URL patterns
+      // Para crawl, usar includeUrls/excludeUrls ao invés de includePaths/excludePaths
       if (options.includePatterns?.length) {
-        firecrawlPayload.includePaths = options.includePatterns;
+        // Converter patterns para URLs válidas
+        firecrawlPayload.includeUrls = options.includePatterns.map(pattern => {
+          // Se é um pattern relativo, criar URL completa
+          if (pattern.startsWith('/')) {
+            const baseUrl = new URL(url);
+            return `${baseUrl.origin}${pattern}`;
+          }
+          return pattern;
+        });
       }
+      
       if (options.excludePatterns?.length) {
-        firecrawlPayload.excludePaths = options.excludePatterns;
+        firecrawlPayload.excludeUrls = options.excludePatterns.map(pattern => {
+          if (pattern.startsWith('/')) {
+            const baseUrl = new URL(url);
+            return `${baseUrl.origin}${pattern}`;
+          }
+          return pattern;
+        });
       }
     }
 
@@ -129,11 +150,29 @@ Deno.serve(async (req) => {
     // Processar resultados - v2 sempre retorna 'data'
     let results;
     if (mode === 'scrape') {
-      // Para scrape, data é um objeto único
-      results = [firecrawlData.data];
+      // Para scrape, data contém o conteúdo diretamente
+      // Verificar se tem markdown no objeto principal ou na estrutura formats
+      const dataItem = firecrawlData.data;
+      if (dataItem.formats?.markdown) {
+        results = [{ ...dataItem, markdown: dataItem.formats.markdown }];
+      } else if (dataItem.markdown) {
+        results = [dataItem];
+      } else {
+        throw new Error('No markdown content found in scrape response');
+      }
     } else {
       // Para crawl, data é um array de objetos
-      results = Array.isArray(firecrawlData.data) ? firecrawlData.data : [firecrawlData.data];
+      if (Array.isArray(firecrawlData.data)) {
+        results = firecrawlData.data.map(item => {
+          // Garantir que o markdown está no local correto
+          if (item.formats?.markdown && !item.markdown) {
+            return { ...item, markdown: item.formats.markdown };
+          }
+          return item;
+        });
+      } else {
+        results = [firecrawlData.data];
+      }
     }
 
     console.log(`📊 Processing ${results.length} items`);
