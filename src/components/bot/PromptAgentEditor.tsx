@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAgentPrompt, useUpdateAgentPrompt } from '@/hooks/useAgentPrompts';
 import { ProductCategory } from '@/types/conversation.types';
 import { toast } from '@/hooks/use-toast';
+import { KnowledgeBaseManager } from './KnowledgeBaseManager';
 
 interface PromptAgentEditorProps {
   selectedAgent: string;
@@ -30,7 +31,7 @@ const LLM_OPTIONS = [
 ];
 
 export function PromptAgentEditor({ selectedAgent, category }: PromptAgentEditorProps) {
-  const [activeTab, setActiveTab] = useState<'system' | 'settings'>('system');
+  const [activeTab, setActiveTab] = useState<'system' | 'settings' | 'knowledge'>('system');
   
   // Buscar dados do agente usando a categoria
   const { data: agentPrompt, isLoading } = useAgentPrompt(category);
@@ -174,7 +175,7 @@ export function PromptAgentEditor({ selectedAgent, category }: PromptAgentEditor
 
       <CardContent className="p-6">
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="system" className="flex items-center gap-2">
               <FileText className="w-4 h-4" />
               Prompt Principal
@@ -182,6 +183,10 @@ export function PromptAgentEditor({ selectedAgent, category }: PromptAgentEditor
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Zap className="w-4 h-4" />
               Configurações
+            </TabsTrigger>
+            <TabsTrigger value="knowledge" className="flex items-center gap-2">
+              <Database className="w-4 h-4" />
+              Base de Conhecimento
             </TabsTrigger>
           </TabsList>
 
@@ -268,6 +273,10 @@ export function PromptAgentEditor({ selectedAgent, category }: PromptAgentEditor
                 </div>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="knowledge" className="mt-6">
+            <KnowledgeBaseManager agentCategory={category} />
           </TabsContent>
         </Tabs>
       </CardContent>
