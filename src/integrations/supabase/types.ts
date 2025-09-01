@@ -1606,6 +1606,7 @@ export type Database = {
         | "extractor"
         | "specialist"
         | "lead_scorer"
+        | "summarizer"
       app_role: "admin" | "supervisor" | "atendente"
       conversation_status:
         | "waiting"
@@ -1764,6 +1765,7 @@ export const Constants = {
         "extractor",
         "specialist",
         "lead_scorer",
+        "summarizer",
       ],
       app_role: ["admin", "supervisor", "atendente"],
       conversation_status: [
