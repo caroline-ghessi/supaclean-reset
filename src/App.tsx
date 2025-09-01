@@ -16,6 +16,7 @@ import AuthPage from "@/pages/Auth";
 import SetPasswordPage from "@/pages/SetPassword";
 import ResetPasswordPage from "@/pages/ResetPassword";
 import LeadsQuentes from "@/pages/LeadsQuentes";
+import Analytics from "@/pages/Analytics";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 
@@ -64,7 +65,7 @@ function AppContent() {
           <Route path="/leads-quentes" element={<LeadsQuentes />} />
           <Route path="/bot" element={<BotPage />} />
           <Route path="/vendedores" element={<VendedoresPage />} />
-          <Route path="/analytics" element={<div className="p-6">Analytics - Em desenvolvimento</div>} />
+          <Route path="/analytics" element={<Analytics />} />
           <Route path="/atendentes" element={<AtendentesPage />} />
           <Route path="/templates" element={<div className="p-6">Templates - Em desenvolvimento</div>} />
           <Route path="/configuracoes" element={<div className="p-6">Configurações - Em desenvolvimento</div>} />

@@ -302,8 +302,8 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px'
                   }}
-                  formatter={(value, name) => [
-                    name === 'Qualidade' ? `${(value / 10).toFixed(1)}/10` : `${value}%`,
+                  formatter={(value: any, name: any) => [
+                    name === 'Qualidade' ? `${(Number(value) / 10).toFixed(1)}/10` : `${Number(value)}%`,
                     name
                   ]}
                 />
