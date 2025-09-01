@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Search, MoreVertical, Paperclip, Smile, Send, Mic, ArrowDown } from 'lucide-react';
+import { Search, MoreVertical, Paperclip, Smile, Send, Mic, ArrowDown, UserCheck, Bot } from 'lucide-react';
 import { useConversation } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
 import { useCreateMessage } from '@/hooks/useMessages';
 import { useRealtimeMessages } from '@/hooks/useRealtimeSubscription';
+import { useAssumeConversation, useReturnConversationToBot } from '@/hooks/useConversationActions';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,6 +32,8 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
   const { data: conversation, isLoading: conversationLoading } = useConversation(conversationId);
   const { data: messages, isLoading: messagesLoading } = useMessages(conversationId);
   const createMessage = useCreateMessage();
+  const assumeConversation = useAssumeConversation();
+  const returnToBot = useReturnConversationToBot();
 
   // Enable realtime updates
   useRealtimeMessages(conversationId);
@@ -166,10 +169,45 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
                 {conversation.lead_score && ` ${conversation.lead_score}%`}
               </Badge>
             )}
+            
+            {/* Status Badge */}
+            <Badge 
+              variant={conversation.status === 'with_agent' ? 'default' : 'secondary'}
+              className="text-xs"
+            >
+              {conversation.status === 'with_agent' ? '👤 Com Agente' : '🤖 Com Bot'}
+            </Badge>
           </div>
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Conversation Control Buttons */}
+          {conversation.status === 'in_bot' && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => assumeConversation.mutate(conversationId)}
+              disabled={assumeConversation.isPending}
+              className="text-xs px-2"
+            >
+              <UserCheck size={14} className="mr-1" />
+              Assumir
+            </Button>
+          )}
+          
+          {conversation.status === 'with_agent' && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => returnToBot.mutate(conversationId)}
+              disabled={returnToBot.isPending}
+              className="text-xs px-2"
+            >
+              <Bot size={14} className="mr-1" />
+              Devolver
+            </Button>
+          )}
+          
           <Button variant="ghost" size="sm">
             <Search size={18} />
           </Button>
