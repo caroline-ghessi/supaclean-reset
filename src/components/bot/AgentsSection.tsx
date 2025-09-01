@@ -16,9 +16,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSpecialistAgents, useAgentsByType } from '@/hooks/useAgentConfigs';
+import { useAgentPrompts } from '@/hooks/useAgentPrompts';
 import { useGeneralAgentManager } from '@/hooks/useGeneralAgentManager';
 import { SpyAgentCard } from './SpyAgentCard';
 import { EnhancedPromptEditor } from './EnhancedPromptEditor';
+import { PromptAgentEditor } from './PromptAgentEditor';
 
 // Função para mapear categorias para ícones
 function getIconForCategory(category: string | null) {
@@ -128,18 +130,19 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
   
   // Buscar agentes reais do banco de dados
   const { data: realSpecialistAgents, isLoading: loadingSpecialists } = useSpecialistAgents();
+  const { data: specialistPrompts, isLoading: loadingPrompts } = useAgentPrompts();
   const { data: classifierAgents, isLoading: loadingClassifiers } = useAgentsByType('classifier');
   const { data: extractorAgents, isLoading: loadingExtractors } = useAgentsByType('extractor');
   const { data: leadScorerAgents, isLoading: loadingLeadScorers } = useAgentsByType('lead_scorer');
   
   // Mapear agentes reais para o formato esperado
-  const mappedSpecialistAgents = realSpecialistAgents?.map(agent => ({
-    id: agent.product_category || agent.id,
-    name: agent.agent_name,
-    icon: getIconForCategory(agent.product_category),
+  const mappedSpecialistAgents = specialistPrompts?.filter(prompt => prompt.agent_type === 'specialist').map(prompt => ({
+    id: prompt.id,
+    name: prompt.name,
+    icon: getIconForCategory(prompt.category),
     conversations: Math.floor(Math.random() * 50), // Temporário
-    status: agent.is_active ? 'active' as const : 'maintenance' as const,
-    description: agent.description || 'Agente especializado'
+    status: prompt.is_active ? 'active' as const : 'maintenance' as const,
+    description: prompt.description || 'Agente especializado'
   })) || [];
   
   const mappedSpyAgents = [
@@ -477,9 +480,9 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
             {/* Área Principal - Editor de Prompt Especialista */}
             <div className="lg:col-span-2">
               {selectedAgent && selectedAgentType === 'specialist' ? (
-                <EnhancedPromptEditor 
-                  selectedAgent={selectedAgent as any} 
-                  agentType="specialist"
+                <PromptAgentEditor 
+                  selectedAgent={selectedAgent} 
+                  category={specialistPrompts?.find(p => p.id === selectedAgent)?.category || 'telha_shingle'}
                 />
               ) : (
                 <Card>
