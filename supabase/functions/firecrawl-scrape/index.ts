@@ -19,26 +19,46 @@ console.log('🔧 Environment variables check:', {
 });
 
 Deno.serve(async (req) => {
+  console.log('🚀 Function started - method:', req.method);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('✅ CORS preflight handled');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('🚀 Firecrawl function started');
-    console.log('📡 Environment check:', {
+    console.log('📝 Reading request body...');
+    
+    // Verificar se conseguimos ler o body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log('✅ Request body parsed successfully:', JSON.stringify(requestBody, null, 2));
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      throw new Error('Invalid JSON in request body');
+    }
+
+    const { url, agentCategory, mode, options = {} } = requestBody;
+
+    if (!url || !agentCategory || !mode) {
+      throw new Error('Missing required parameters: url, agentCategory, or mode');
+    }
+
+    console.log('🔧 Environment variables check:', {
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseKey: !!supabaseServiceKey,
-      hasFirecrawlKey: !!firecrawlApiKey
+      hasFirecrawlKey: !!firecrawlApiKey,
+      supabaseUrlPreview: supabaseUrl?.substring(0, 20) + '...',
+      firecrawlKeyPreview: firecrawlApiKey?.substring(0, 10) + '...'
     });
 
     if (!firecrawlApiKey) {
-      throw new Error('FIRECRAWL_API_KEY not configured');
+      throw new Error('FIRECRAWL_API_KEY not configured in environment variables');
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { url, agentCategory, mode, options = {} } = await req.json();
-
     console.log(`🔥 Starting Firecrawl ${mode} for URL: ${url}, Agent: ${agentCategory}`);
 
     // Prepare Firecrawl API request for v2 - PAYLOAD SIMPLIFICADO
