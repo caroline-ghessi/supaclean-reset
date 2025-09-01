@@ -16,8 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSpecialistAgents, useAgentsByType } from '@/hooks/useAgentConfigs';
-import { useGeneralAgent, useUpdateAgentPrompt } from '@/hooks/useAgentPrompts';
-import { useToast } from '@/hooks/use-toast';
+import { useGeneralAgentManager } from '@/hooks/useGeneralAgentManager';
 import { SpyAgentCard } from './SpyAgentCard';
 import { EnhancedPromptEditor } from './EnhancedPromptEditor';
 
@@ -114,53 +113,18 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
   const [activeTab, setActiveTab] = useState<'general' | 'specialists' | 'spies' | 'leads'>('general');
   const [selectedAgentType, setSelectedAgentType] = useState<'general' | 'specialist' | 'classifier' | 'extractor' | 'lead_scorer'>('general');
   
-  // Buscar agente geral
-  const { data: generalAgent, isLoading: loadingGeneral } = useGeneralAgent();
-  const updateAgentPrompt = useUpdateAgentPrompt();
-  const { toast } = useToast();
-  
-  // Estado local para edição do agente geral
-  const [isEditingGeneral, setIsEditingGeneral] = React.useState(false);
-  const [generalPrompt, setGeneralPrompt] = React.useState('');
-  const [generalLLM, setGeneralLLM] = React.useState('claude-3-5-sonnet-20241022');
-  
-  // Atualizar estados locais quando o agente geral for carregado
-  React.useEffect(() => {
-    if (generalAgent) {
-      setGeneralPrompt(generalAgent.knowledge_base || '');
-      setGeneralLLM(generalAgent.llm_model || 'claude-3-5-sonnet-20241022');
-    }
-  }, [generalAgent]);
-  
-  // Função para salvar alterações do agente geral
-  const handleSaveGeneral = async () => {
-    if (!generalAgent) return;
-    
-    try {
-      await updateAgentPrompt.mutateAsync({
-        id: generalAgent.id,
-        category: generalAgent.category,
-        knowledge_base: generalPrompt,
-        llm_model: generalLLM,
-        name: generalAgent.name,
-        description: generalAgent.description,
-        is_active: true
-      });
-      
-      toast({
-        title: "Agente atualizado",
-        description: "Configurações do agente geral foram salvas com sucesso.",
-      });
-      
-      setIsEditingGeneral(false);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao salvar configurações. Tente novamente.",
-        variant: "destructive",
-      });
-    }
-  };
+  // Gerenciador do agente geral
+  const {
+    generalAgent,
+    localConfig,
+    isLoading: loadingGeneral,
+    isEditing: isEditingGeneral,
+    isSaving,
+    startEditing,
+    cancelEditing,
+    saveChanges,
+    updateLocalConfig
+  } = useGeneralAgentManager();
   
   // Buscar agentes reais do banco de dados
   const { data: realSpecialistAgents, isLoading: loadingSpecialists } = useSpecialistAgents();
@@ -273,9 +237,18 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                           <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
                             {generalAgent.description}
                           </p>
-                          <Badge variant="default" className="text-xs">
-                            Ativo
-                          </Badge>
+                          <div className="flex gap-2">
+                            <Badge variant="default" className="text-xs">
+                              Ativo
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {localConfig?.llm_model === 'claude-3-5-sonnet-20241022' ? 'Claude 3.5 Sonnet' :
+                               localConfig?.llm_model === 'claude-3-5-haiku-20241022' ? 'Claude 3.5 Haiku' :
+                               localConfig?.llm_model === 'gpt-4o' ? 'GPT-4o' :
+                               localConfig?.llm_model === 'gpt-4o-mini' ? 'GPT-4o Mini' :
+                               localConfig?.llm_model || 'Claude 3.5 Sonnet'}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -290,7 +263,7 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
 
             {/* Editor do Agente Geral */}
             <div className="lg:col-span-2">
-              {selectedAgent && selectedAgentType === 'general' && generalAgent ? (
+              {selectedAgent && selectedAgentType === 'general' && generalAgent && localConfig ? (
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -300,7 +273,7 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                           Editor do Agente Geral
                         </CardTitle>
                         <CardDescription>
-                          Configure o prompt do agente responsável pelo atendimento inicial e casos não especializados.
+                          Configure o prompt e modelo LLM do agente responsável pelo atendimento inicial.
                         </CardDescription>
                       </div>
                       <div className="flex gap-2">
@@ -309,26 +282,23 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => {
-                                setIsEditingGeneral(false);
-                                setGeneralPrompt(generalAgent.knowledge_base || '');
-                                setGeneralLLM(generalAgent.llm_model || 'claude-3-5-sonnet-20241022');
-                              }}
+                              onClick={cancelEditing}
+                              disabled={isSaving}
                             >
                               Cancelar
                             </Button>
                             <Button
                               size="sm"
-                              onClick={handleSaveGeneral}
-                              disabled={updateAgentPrompt.isPending}
+                              onClick={saveChanges}
+                              disabled={isSaving}
                             >
-                              {updateAgentPrompt.isPending ? 'Salvando...' : 'Salvar'}
+                              {isSaving ? 'Salvando...' : 'Salvar'}
                             </Button>
                           </>
                         ) : (
                           <Button
                             size="sm"
-                            onClick={() => setIsEditingGeneral(true)}
+                            onClick={startEditing}
                           >
                             <Edit3 className="w-4 h-4 mr-2" />
                             Editar
@@ -338,59 +308,110 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                    {/* Configurações básicas */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="agent-name">Nome do Agente</Label>
+                        <Input
+                          id="agent-name"
+                          value={localConfig.name}
+                          onChange={(e) => updateLocalConfig({ name: e.target.value })}
+                          disabled={!isEditingGeneral}
+                          className="mt-2"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="agent-description">Descrição</Label>
+                        <Input
+                          id="agent-description"
+                          value={localConfig.description}
+                          onChange={(e) => updateLocalConfig({ description: e.target.value })}
+                          disabled={!isEditingGeneral}
+                          className="mt-2"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Modelo LLM */}
+                    <div>
+                      <Label>Modelo LLM</Label>
+                      {isEditingGeneral ? (
+                        <Select 
+                          value={localConfig.llm_model} 
+                          onValueChange={(value) => updateLocalConfig({ llm_model: value })}
+                        >
+                          <SelectTrigger className="mt-2">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="claude-3-5-sonnet-20241022">
+                              Claude 3.5 Sonnet (Recomendado)
+                            </SelectItem>
+                            <SelectItem value="claude-3-5-haiku-20241022">
+                              Claude 3.5 Haiku (Rápido)
+                            </SelectItem>
+                            <SelectItem value="gpt-4o">
+                              GPT-4o (OpenAI)
+                            </SelectItem>
+                            <SelectItem value="gpt-4o-mini">
+                              GPT-4o Mini (Econômico)
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div className="mt-2">
+                          <Badge variant="outline" className="text-sm">
+                            {localConfig.llm_model === 'claude-3-5-sonnet-20241022' ? 'Claude 3.5 Sonnet' :
+                             localConfig.llm_model === 'claude-3-5-haiku-20241022' ? 'Claude 3.5 Haiku' :
+                             localConfig.llm_model === 'gpt-4o' ? 'GPT-4o' :
+                             localConfig.llm_model === 'gpt-4o-mini' ? 'GPT-4o Mini' :
+                             localConfig.llm_model}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Prompt Principal */}
                     <div>
                       <Label htmlFor="general-prompt">Prompt Principal</Label>
                       <Textarea
                         id="general-prompt"
-                        value={generalPrompt}
-                        onChange={(e) => setGeneralPrompt(e.target.value)}
-                        readOnly={!isEditingGeneral}
+                        value={localConfig.knowledge_base}
+                        onChange={(e) => updateLocalConfig({ knowledge_base: e.target.value })}
+                        disabled={!isEditingGeneral}
                         rows={15}
-                        className="mt-2"
+                        className="mt-2 font-mono text-sm"
                         placeholder="Configure o prompt do agente geral aqui..."
                       />
                       <p className="text-xs text-muted-foreground mt-2">
                         {isEditingGeneral 
-                          ? 'Edite o prompt acima e clique em "Salvar" para aplicar as alterações.'
-                          : 'Clique em "Editar" para modificar este prompt.'
+                          ? 'Use variáveis como {{customer_name}}, {{whatsapp_number}}, {{customer_city}} para personalizar as respostas.'
+                          : 'Clique em "Editar" para modificar este prompt e o modelo LLM.'
                         }
                       </p>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Modelo LLM</Label>
-                        {isEditingGeneral ? (
-                          <Select value={generalLLM} onValueChange={setGeneralLLM}>
-                            <SelectTrigger className="mt-2">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
-                              <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
-                              <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                              <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <div className="mt-2">
-                            <Badge variant="outline">
-                              {generalLLM === 'claude-3-5-sonnet-20241022' ? 'Claude 3.5 Sonnet' :
-                               generalLLM === 'claude-3-5-haiku-20241022' ? 'Claude 3.5 Haiku' :
-                               generalLLM === 'gpt-4o' ? 'GPT-4o' :
-                               generalLLM === 'gpt-4o-mini' ? 'GPT-4o Mini' :
-                               generalLLM}
-                            </Badge>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Status</Label>
-                        <div className="mt-2">
-                          <Badge variant={generalAgent.is_active ? 'default' : 'secondary'}>
-                            {generalAgent.is_active ? 'Ativo' : 'Inativo'}
+
+                    {/* Status e Estatísticas */}
+                    <div className="grid grid-cols-3 gap-4 pt-4 border-t">
+                      <div className="text-center">
+                        <Label className="text-xs text-muted-foreground">Status</Label>
+                        <div className="mt-1">
+                          <Badge variant={localConfig.is_active ? 'default' : 'secondary'}>
+                            {localConfig.is_active ? 'Ativo' : 'Inativo'}
                           </Badge>
                         </div>
+                      </div>
+                      <div className="text-center">
+                        <Label className="text-xs text-muted-foreground">Categoria</Label>
+                        <div className="mt-1">
+                          <Badge variant="outline">Atendimento Geral</Badge>
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <Label className="text-xs text-muted-foreground">Última atualização</Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {generalAgent.updated_at ? new Date(generalAgent.updated_at).toLocaleDateString('pt-BR') : 'N/A'}
+                        </p>
                       </div>
                     </div>
                   </CardContent>
