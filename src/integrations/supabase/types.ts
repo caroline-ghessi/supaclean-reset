@@ -23,6 +23,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_spy: boolean | null
+          llm_model: string | null
           max_tokens: number | null
           product_category:
             | Database["public"]["Enums"]["product_category"]
@@ -39,6 +40,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_spy?: boolean | null
+          llm_model?: string | null
           max_tokens?: number | null
           product_category?:
             | Database["public"]["Enums"]["product_category"]
@@ -55,6 +57,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_spy?: boolean | null
+          llm_model?: string | null
           max_tokens?: number | null
           product_category?:
             | Database["public"]["Enums"]["product_category"]
