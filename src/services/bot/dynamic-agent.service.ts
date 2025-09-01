@@ -93,7 +93,7 @@ export class DynamicAgentService {
     const { data } = await supabase
       .from('agent_prompts')
       .select('*')
-      .eq('category', category)
+      .eq('category', category as any) // Type will be updated after DB sync
       .eq('is_active', true)
       .single();
 
@@ -102,7 +102,7 @@ export class DynamicAgentService {
       const { data: generalAgent } = await supabase
         .from('agent_prompts')
         .select('*')
-        .eq('category', 'geral' as ProductCategory)
+        .eq('category', 'geral' as any) // Type will be updated after DB sync
         .eq('is_active', true)
         .single();
       
@@ -278,7 +278,7 @@ export class DynamicAgentService {
       // Search for relevant knowledge chunks
       const { data: chunks, error: searchError } = await supabase.rpc('search_knowledge_chunks', {
         query_embedding: embeddingData.embedding,
-        target_agent_category: category,
+        target_agent_category: category as any, // Type will be updated after DB sync
         similarity_threshold: 0.7,
         max_results: 3
       });

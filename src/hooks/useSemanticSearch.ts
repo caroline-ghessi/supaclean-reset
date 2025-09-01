@@ -48,7 +48,7 @@ export function useSemanticSearch({
       // Search knowledge chunks using the embedding
       const { data, error } = await supabase.rpc('search_knowledge_chunks', {
         query_embedding: queryEmbedding,
-        target_agent_category: agentCategory,
+        target_agent_category: agentCategory as any, // Type will be updated after DB sync
         similarity_threshold: similarityThreshold,
         max_results: maxResults
       });
@@ -94,7 +94,7 @@ export function useSemanticSearchFiles({
       // Search knowledge files using the embedding
       const { data, error } = await supabase.rpc('search_knowledge_files', {
         query_embedding: queryEmbedding,
-        target_agent_category: agentCategory,
+        target_agent_category: agentCategory as any, // Type will be updated after DB sync
         similarity_threshold: similarityThreshold,
         max_results: maxResults
       });

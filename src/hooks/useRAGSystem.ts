@@ -61,7 +61,7 @@ export function useRAGSearch() {
       // Buscar conhecimento relevante usando a função SQL
       const { data, error } = await supabase.rpc('search_knowledge_enhanced', {
         query_embedding: embeddingData.embedding,
-        agent_filter: agentType,
+        agent_filter: agentType as any, // Type will be updated after DB sync
         match_threshold: threshold,
         match_count: limit,
         include_general: true
@@ -112,7 +112,7 @@ export function useKnowledgeUsageLog() {
     mutationFn: async (usage: UsageLogEntry) => {
       const { data, error } = await supabase
         .from('knowledge_usage_log')
-        .insert(usage)
+        .insert(usage as any) // Type will be updated after DB sync
         .select()
         .single();
 
@@ -134,7 +134,7 @@ export function useKnowledgeAnalytics(agentType?: ProductCategory, days = 30) {
         .order('date', { ascending: false });
 
       if (agentType) {
-        query = query.eq('agent_type', agentType);
+        query = query.eq('agent_type', agentType as any); // Type will be updated after DB sync
       }
 
       const { data, error } = await query;
@@ -157,7 +157,7 @@ export function useFAQPatterns(agentType?: ProductCategory) {
         .limit(20);
 
       if (agentType) {
-        query = query.eq('agent_type', agentType);
+        query = query.eq('agent_type', agentType as any); // Type will be updated after DB sync
       }
 
       const { data, error } = await query;

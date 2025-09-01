@@ -39,7 +39,7 @@ export function useKnowledgeFiles(agentCategory: ProductCategory) {
           *,
           chunks_count:knowledge_chunks(count)
         `)
-        .eq('agent_category', agentCategory)
+        .eq('agent_category', agentCategory as any) // Type will be updated after DB sync
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -86,7 +86,7 @@ export function useUploadKnowledgeFile() {
       const { data: fileRecord, error: dbError } = await supabase
         .from('agent_knowledge_files')
         .insert({
-          agent_category: agentCategory,
+          agent_category: agentCategory as any, // Type will be updated after DB sync
           file_name: file.name,
           file_type: file.type,
           file_size: file.size,
