@@ -15,7 +15,7 @@ import { ClassificationStats } from '@/components/bot/ClassificationStats';
 import { RAGSection } from '@/components/bot/RAGSection';
 import { AgentConfigurationSection } from '@/components/bot/AgentConfigurationSection';
 
-type ActiveTab = 'overview' | 'agents' | 'llm' | 'rag' | 'test' | 'config';
+type ActiveTab = 'overview' | 'agents' | 'llm' | 'rag' | 'test';
 
 interface TabButtonProps {
   active: boolean;
@@ -50,7 +50,7 @@ export default function BotPage() {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get('tab') as ActiveTab;
-    if (tab && ['overview', 'agents', 'llm', 'rag', 'test', 'config'].includes(tab)) {
+    if (tab && ['overview', 'agents', 'llm', 'rag', 'test'].includes(tab)) {
       setActiveTab(tab);
     }
   }, []);
@@ -105,12 +105,6 @@ export default function BotPage() {
                 icon={<TestTube className="w-4 h-4" />}
                 label="Testar"
               />
-              <TabButton
-                active={activeTab === 'config'}
-                onClick={() => setActiveTab('config')}
-                icon={<Settings className="w-4 h-4" />}
-                label="Configuração"
-              />
             </div>
 
             {/* Actions */}
@@ -149,20 +143,6 @@ export default function BotPage() {
         {activeTab === 'llm' && <LLMSection />}
         {activeTab === 'rag' && <RAGSection />}
         {activeTab === 'test' && <TestSection />}
-        {activeTab === 'config' && (
-          <div className="text-center py-12">
-            <h3 className="text-lg font-semibold mb-2">Configuração Unificada</h3>
-            <p className="text-muted-foreground mb-4">
-              O gerenciamento de prompts agora está centralizado na aba "Agentes".
-            </p>
-            <button 
-              onClick={() => setActiveTab('agents')} 
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg"
-            >
-              Ir para Agentes
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

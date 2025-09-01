@@ -113,6 +113,7 @@ export type SenderType = 'customer' | 'bot' | 'agent' | 'system';
 export type LeadTemperature = 'cold' | 'warm' | 'hot';
 
 export type ProductCategory =
+  | 'geral'
   | 'telha_shingle'
   | 'energia_solar'
   | 'steel_frame'
