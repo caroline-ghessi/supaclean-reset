@@ -16,7 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSpecialistAgents, useAgentsByType } from '@/hooks/useAgentConfigs';
-import { useGeneralAgent } from '@/hooks/useAgentPrompts';
+import { useGeneralAgent, useUpdateAgentPrompt } from '@/hooks/useAgentPrompts';
+import { useToast } from '@/hooks/use-toast';
 import { SpyAgentCard } from './SpyAgentCard';
 import { EnhancedPromptEditor } from './EnhancedPromptEditor';
 
@@ -115,6 +116,51 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
   
   // Buscar agente geral
   const { data: generalAgent, isLoading: loadingGeneral } = useGeneralAgent();
+  const updateAgentPrompt = useUpdateAgentPrompt();
+  const { toast } = useToast();
+  
+  // Estado local para edição do agente geral
+  const [isEditingGeneral, setIsEditingGeneral] = React.useState(false);
+  const [generalPrompt, setGeneralPrompt] = React.useState('');
+  const [generalLLM, setGeneralLLM] = React.useState('claude-3-5-sonnet-20241022');
+  
+  // Atualizar estados locais quando o agente geral for carregado
+  React.useEffect(() => {
+    if (generalAgent) {
+      setGeneralPrompt(generalAgent.knowledge_base || '');
+      setGeneralLLM(generalAgent.llm_model || 'claude-3-5-sonnet-20241022');
+    }
+  }, [generalAgent]);
+  
+  // Função para salvar alterações do agente geral
+  const handleSaveGeneral = async () => {
+    if (!generalAgent) return;
+    
+    try {
+      await updateAgentPrompt.mutateAsync({
+        id: generalAgent.id,
+        category: generalAgent.category,
+        knowledge_base: generalPrompt,
+        llm_model: generalLLM,
+        name: generalAgent.name,
+        description: generalAgent.description,
+        is_active: true
+      });
+      
+      toast({
+        title: "Agente atualizado",
+        description: "Configurações do agente geral foram salvas com sucesso.",
+      });
+      
+      setIsEditingGeneral(false);
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar configurações. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
   
   // Buscar agentes reais do banco de dados
   const { data: realSpecialistAgents, isLoading: loadingSpecialists } = useSpecialistAgents();
@@ -247,38 +293,96 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
               {selectedAgent && selectedAgentType === 'general' && generalAgent ? (
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Bot className="w-5 h-5" />
-                      Editor do Agente Geral
-                    </CardTitle>
-                    <CardDescription>
-                      Configure o prompt do agente responsável pelo atendimento inicial e casos não especializados.
-                    </CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Bot className="w-5 h-5" />
+                          Editor do Agente Geral
+                        </CardTitle>
+                        <CardDescription>
+                          Configure o prompt do agente responsável pelo atendimento inicial e casos não especializados.
+                        </CardDescription>
+                      </div>
+                      <div className="flex gap-2">
+                        {isEditingGeneral ? (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setIsEditingGeneral(false);
+                                setGeneralPrompt(generalAgent.knowledge_base || '');
+                                setGeneralLLM(generalAgent.llm_model || 'claude-3-5-sonnet-20241022');
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveGeneral}
+                              disabled={updateAgentPrompt.isPending}
+                            >
+                              {updateAgentPrompt.isPending ? 'Salvando...' : 'Salvar'}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            onClick={() => setIsEditingGeneral(true)}
+                          >
+                            <Edit3 className="w-4 h-4 mr-2" />
+                            Editar
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div>
                       <Label htmlFor="general-prompt">Prompt Principal</Label>
                       <Textarea
                         id="general-prompt"
-                        value={generalAgent.knowledge_base || ''}
-                        readOnly
+                        value={generalPrompt}
+                        onChange={(e) => setGeneralPrompt(e.target.value)}
+                        readOnly={!isEditingGeneral}
                         rows={15}
                         className="mt-2"
-                        placeholder="O prompt do agente geral será carregado aqui..."
+                        placeholder="Configure o prompt do agente geral aqui..."
                       />
                       <p className="text-xs text-muted-foreground mt-2">
-                        Para editar este prompt, acesse a tabela 'agent_prompts' no banco de dados e modifique o registro com category='geral'.
+                        {isEditingGeneral 
+                          ? 'Edite o prompt acima e clique em "Salvar" para aplicar as alterações.'
+                          : 'Clique em "Editar" para modificar este prompt.'
+                        }
                       </p>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <Label>Modelo LLM</Label>
-                        <div className="mt-2">
-                          <Badge variant="outline">
-                            {generalAgent.llm_model || 'claude-3-5-sonnet-20241022'}
-                          </Badge>
-                        </div>
+                        {isEditingGeneral ? (
+                          <Select value={generalLLM} onValueChange={setGeneralLLM}>
+                            <SelectTrigger className="mt-2">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                              <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
+                              <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                              <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="mt-2">
+                            <Badge variant="outline">
+                              {generalLLM === 'claude-3-5-sonnet-20241022' ? 'Claude 3.5 Sonnet' :
+                               generalLLM === 'claude-3-5-haiku-20241022' ? 'Claude 3.5 Haiku' :
+                               generalLLM === 'gpt-4o' ? 'GPT-4o' :
+                               generalLLM === 'gpt-4o-mini' ? 'GPT-4o Mini' :
+                               generalLLM}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                       <div>
                         <Label>Status</Label>
