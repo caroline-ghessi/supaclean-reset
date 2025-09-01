@@ -197,33 +197,75 @@ RESPOSTA: Responda de forma natural e personalizada, considerando todo o context
       data: { error: error.message }
     });
 
-    // Generate fallback response using LLM even in error cases
+    // Generate fallback response using general agent even in error cases
     try {
+      // Try to get general agent for fallback
+      const { data: generalAgent } = await supabase
+        .from('agent_configs')
+        .select('*')
+        .eq('agent_type', 'general')
+        .eq('is_active', true)
+        .single();
+
+      const fallbackModel = generalAgent?.llm_model || 'claude-3-5-sonnet-20241022';
+      const fallbackPrompt = generalAgent?.system_prompt || `Você é um assistente da Drystore. Houve um erro técnico, mas mantenha o atendimento profissional.`;
+      
       const fallbackResponse = await callLLMAPI(
-        'claude-3-5-sonnet-20241022',
-        `Você é um assistente da Drystore. Houve um erro técnico, mas mantenha o atendimento profissional. 
-        Mensagem do cliente: "${await req.text().catch(() => 'mensagem não disponível')}"
+        fallbackModel,
+        `${fallbackPrompt}
         
-        Responda de forma natural explicando que houve um problema técnico e que um especialista entrará em contato.`,
+        SITUAÇÃO: Houve um erro técnico no sistema, mas você deve manter o atendimento.
+        Mensagem do cliente: "${message || 'mensagem não disponível'}"
+        
+        Responda de forma natural e profissional, explicando que houve um problema técnico temporário e que iremos resolver a solicitação.`,
         0.7,
         300
       );
       
       return new Response(JSON.stringify({ 
         error: error.message,
-        response: fallbackResponse
+        response: fallbackResponse,
+        agentName: 'Agente Geral (Fallback)',
+        agentType: 'general'
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     } catch (fallbackError) {
-      return new Response(JSON.stringify({ 
-        error: error.message,
-        response: 'Desculpe, tivemos um problema técnico. Um especialista entrará em contato com você em breve para resolver sua solicitação.'
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      console.error('Even fallback failed:', fallbackError);
+      
+      // ÚLTIMO RECURSO: usar agente geral com prompt básico
+      try {
+        const lastResortResponse = await callLLMAPI(
+          'claude-3-5-sonnet-20241022',
+          `Você é um assistente da Drystore. Houve um erro técnico. Seja breve e profissional.
+          Mensagem: "${message || 'erro'}"
+          
+          Responda educadamente que houve um problema e que resolveremos.`,
+          0.7,
+          200
+        );
+        
+        return new Response(JSON.stringify({ 
+          error: error.message,
+          response: lastResortResponse,
+          agentName: 'Sistema de Emergência',
+          agentType: 'emergency'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (finalError) {
+        console.error('All fallbacks failed:', finalError);
+        return new Response(JSON.stringify({ 
+          error: error.message,
+          response: null,
+          message: 'Sistema temporariamente indisponível'
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
     }
   }
 });

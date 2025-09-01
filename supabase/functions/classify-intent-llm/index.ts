@@ -50,7 +50,9 @@ Categoria atual: ${currentProductGroup || 'indefinido'}`;
     let headers = {};
     let requestBody = {};
 
-    if (classifierAgent.llm_model.startsWith('claude')) {
+    const llmModel = classifierAgent.llm_model || 'claude-3-5-sonnet-20241022';
+    
+    if (llmModel.startsWith('claude')) {
       apiKey = Deno.env.get('ANTHROPIC_API_KEY');
       if (!apiKey) throw new Error('Anthropic API key not configured');
       
@@ -61,11 +63,11 @@ Categoria atual: ${currentProductGroup || 'indefinido'}`;
         'anthropic-version': '2023-06-01'
       };
       requestBody = {
-        model: classifierAgent.llm_model,
+        model: llmModel,
         max_tokens: 1000,
         messages: [{ role: 'user', content: fullPrompt }]
       };
-    } else if (classifierAgent.llm_model.startsWith('gpt')) {
+    } else if (llmModel.startsWith('gpt')) {
       apiKey = Deno.env.get('OPENAI_API_KEY');
       if (!apiKey) throw new Error('OpenAI API key not configured');
       
@@ -75,11 +77,11 @@ Categoria atual: ${currentProductGroup || 'indefinido'}`;
         'Authorization': `Bearer ${apiKey}`
       };
       requestBody = {
-        model: classifierAgent.llm_model,
+        model: llmModel,
         messages: [{ role: 'user', content: fullPrompt }],
         max_tokens: 1000
       };
-    } else if (classifierAgent.llm_model.startsWith('grok')) {
+    } else if (llmModel.startsWith('grok')) {
       apiKey = Deno.env.get('XAI_API_KEY');
       if (!apiKey) throw new Error('xAI API key not configured');
       
@@ -89,12 +91,12 @@ Categoria atual: ${currentProductGroup || 'indefinido'}`;
         'Authorization': `Bearer ${apiKey}`
       };
       requestBody = {
-        model: classifierAgent.llm_model,
+        model: llmModel,
         messages: [{ role: 'user', content: fullPrompt }],
         max_tokens: 1000
       };
     } else {
-      throw new Error(`Unsupported LLM model: ${classifierAgent.llm_model}`);
+      throw new Error(`Unsupported LLM model: ${llmModel}`);
     }
 
     // Call the configured LLM API
@@ -114,9 +116,9 @@ Categoria atual: ${currentProductGroup || 'indefinido'}`;
     
     // Extract classification based on LLM type
     let classification = '';
-    if (classifierAgent.llm_model.startsWith('claude')) {
+    if (llmModel.startsWith('claude')) {
       classification = data.content[0].text.trim().toLowerCase();
-    } else if (classifierAgent.llm_model.startsWith('gpt') || classifierAgent.llm_model.startsWith('grok')) {
+    } else if (llmModel.startsWith('gpt') || llmModel.startsWith('grok')) {
       classification = data.choices[0].message.content.trim().toLowerCase();
     }
 
@@ -165,7 +167,7 @@ Categoria atual: ${currentProductGroup || 'indefinido'}`;
             current_product_group: currentProductGroup,
             llm_response: classification,
             mapped_category: finalProductGroup,
-            llm_model: classifierAgent.llm_model
+            llm_model: llmModel
           }
         });
     }

@@ -215,11 +215,11 @@ async function handleIncomingMessage(message: any, contact: any) {
       })
       .eq('id', conversation.id);
 
-    // NOVA LÓGICA: Adicionar mensagem ao buffer em vez de processar imediatamente
-    await handleMessageBuffer(conversation.id, content);
+    // PROCESSAR MENSAGEM IMEDIATAMENTE COM AGENTES DE IA
+    await processMessageWithAI(conversation.id, content);
 
     // Log para debug
-    console.log('Message added to buffer:', {
+    console.log('Message processed with AI agents:', {
       conversationId: conversation.id,
       messageId: whatsappMessageId,
       content: content.substring(0, 50)
@@ -243,69 +243,141 @@ async function handleIncomingMessage(message: any, contact: any) {
   }
 }
 
-// Nova função para gerenciar buffer de mensagens
-async function handleMessageBuffer(conversationId: string, messageContent: string) {
+// Função para processar mensagem imediatamente com agentes de IA
+async function processMessageWithAI(conversationId: string, messageContent: string) {
   try {
-    // Verificar se já existe buffer ativo para esta conversa
-    const { data: existingBuffer, error: bufferError } = await supabase
-      .from('message_buffers')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .eq('processed', false)
-      .single();
+    console.log(`🤖 Processing message with AI agents for conversation: ${conversationId}`);
 
-    const now = new Date();
-    
-    if (existingBuffer) {
-      // Adicionar mensagem ao buffer existente
-      const currentMessages = existingBuffer.messages || [];
-      currentMessages.push({
-        content: messageContent,
-        timestamp: now.toISOString()
-      });
+    // 1. Classificar a intenção da mensagem
+    console.log('Step 1: Classifying intent...');
+    const { data: classificationResult, error: classifyError } = await supabase.functions.invoke('classify-intent-llm', {
+      body: {
+        conversationId,
+        message: messageContent
+      }
+    });
 
-      await supabase
-        .from('message_buffers')
-        .update({
-          messages: currentMessages,
-          should_process_at: new Date(now.getTime() + 60000).toISOString() // +60 segundos
-        })
-        .eq('id', existingBuffer.id);
-
+    if (classifyError) {
+      console.error('Classification failed:', classifyError);
     } else {
-      // Criar novo buffer
-      const processAt = new Date(now.getTime() + 60000); // 60 segundos
-      
-      await supabase
-        .from('message_buffers')
-        .insert({
-          conversation_id: conversationId,
-          messages: [{
-            content: messageContent,
-            timestamp: now.toISOString()
-          }],
-          buffer_started_at: now.toISOString(),
-          should_process_at: processAt.toISOString(),
-          processed: false
-        });
+      console.log('Classification result:', classificationResult);
+    }
 
-      // Agendar processamento via Edge Function (simulação com timeout)
-      // Em produção real, usaríamos pg_cron ou sistema de jobs
-      setTimeout(async () => {
-        await supabase.functions.invoke('process-message-buffer', {
-          body: { conversationId }
-        });
-      }, 60000);
+    // 2. Extrair dados do cliente
+    console.log('Step 2: Extracting customer data...');
+    const { data: extractionResult, error: extractError } = await supabase.functions.invoke('extract-customer-data', {
+      body: {
+        conversationId,
+        message: messageContent
+      }
+    });
+
+    if (extractError) {
+      console.error('Extraction failed:', extractError);
+    } else {
+      console.log('Extraction result:', extractionResult);
+    }
+
+    // 3. Gerar resposta inteligente usando agentes de IA
+    console.log('Step 3: Generating intelligent response...');
+    const { data: responseResult, error: responseError } = await supabase.functions.invoke('intelligent-agent-response', {
+      body: {
+        conversationId,
+        message: messageContent,
+        productCategory: classificationResult?.productCategory || 'indefinido'
+      }
+    });
+
+    if (responseError) {
+      console.error('Response generation failed:', responseError);
+      
+      // Fallback: usar agente geral se falhar
+      const { data: fallbackResult } = await supabase.functions.invoke('intelligent-agent-response', {
+        body: {
+          conversationId,
+          message: messageContent,
+          productCategory: 'indefinido'
+        }
+      });
+      
+      console.log('Fallback response:', fallbackResult);
+      
+      if (fallbackResult?.response) {
+        await sendWhatsAppResponse(conversationId, fallbackResult.response);
+      }
+    } else {
+      console.log('AI Response generated:', responseResult);
+      
+      if (responseResult?.response) {
+        await sendWhatsAppResponse(conversationId, responseResult.response);
+      }
     }
 
   } catch (error) {
-    console.error('Error handling message buffer:', error);
+    console.error('Error processing message with AI:', error);
     
     await supabase.from('system_logs').insert({
       level: 'error',
-      source: 'whatsapp-webhook',
-      message: 'Failed to handle message buffer',
+      source: 'whatsapp-webhook-ai-processing',
+      message: 'Failed to process message with AI',
       data: { error: error.message, conversationId }
+    });
+
+    // Como último recurso, enviar mensagem de fallback usando agente geral
+    try {
+      const { data: emergencyResponse } = await supabase.functions.invoke('intelligent-agent-response', {
+        body: {
+          conversationId,
+          message: "Mensagem de fallback - houve um erro no processamento",
+          productCategory: 'indefinido'
+        }
+      });
+      
+      if (emergencyResponse?.response) {
+        await sendWhatsAppResponse(conversationId, emergencyResponse.response);
+      }
+    } catch (emergencyError) {
+      console.error('Emergency response also failed:', emergencyError);
+    }
+  }
+}
+
+// Função para enviar resposta via WhatsApp
+async function sendWhatsAppResponse(conversationId: string, response: string) {
+  try {
+    // Buscar dados da conversa
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('whatsapp_number')
+      .eq('id', conversationId)
+      .single();
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    // Enviar mensagem via WhatsApp
+    const { data: sendResult, error: sendError } = await supabase.functions.invoke('send-whatsapp-message', {
+      body: {
+        to: conversation.whatsapp_number,
+        message: response
+      }
+    });
+
+    if (sendError) {
+      console.error('Failed to send WhatsApp message:', sendError);
+    } else {
+      console.log('WhatsApp message sent successfully:', sendResult);
+    }
+
+  } catch (error) {
+    console.error('Error sending WhatsApp response:', error);
+    
+    await supabase.from('system_logs').insert({
+      level: 'error',
+      source: 'whatsapp-webhook-send-response',
+      message: 'Failed to send WhatsApp response',
+      data: { error: error.message, conversationId, response: response.substring(0, 100) }
     });
   }
 }
@@ -325,13 +397,19 @@ async function handleStatusUpdate(status: any) {
     const mappedStatus = statusMap[messageStatus] || messageStatus;
     const statusTimestamp = new Date(parseInt(timestamp) * 1000).toISOString();
 
-    // Update message status
+    // Update message status - fix column name issue
+    const updateData: any = { status: mappedStatus };
+    
+    // Only add timestamp fields that exist in the schema
+    if (messageStatus === 'delivered') {
+      updateData.delivered_at = statusTimestamp;
+    } else if (messageStatus === 'read') {
+      updateData.read_at = statusTimestamp;
+    }
+
     const { error } = await supabase
       .from('messages')
-      .update({
-        status: mappedStatus,
-        [`${messageStatus}_at`]: statusTimestamp
-      })
+      .update(updateData)
       .eq('whatsapp_message_id', id);
 
     if (error) {

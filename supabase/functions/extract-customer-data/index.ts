@@ -68,7 +68,9 @@ ${conversationHistory}
     let headers = {};
     let requestBody = {};
 
-    if (extractorAgent.llm_model.startsWith('claude')) {
+    const llmModel = extractorAgent.llm_model || 'claude-3-5-sonnet-20241022';
+    
+    if (llmModel.startsWith('claude')) {
       apiKey = Deno.env.get('ANTHROPIC_API_KEY');
       if (!apiKey) throw new Error('Anthropic API key not configured');
       
@@ -79,11 +81,11 @@ ${conversationHistory}
         'anthropic-version': '2023-06-01'
       };
       requestBody = {
-        model: extractorAgent.llm_model,
+        model: llmModel,
         max_tokens: 2000,
         messages: [{ role: 'user', content: fullPrompt }]
       };
-    } else if (extractorAgent.llm_model.startsWith('gpt')) {
+    } else if (llmModel.startsWith('gpt')) {
       apiKey = Deno.env.get('OPENAI_API_KEY');
       if (!apiKey) throw new Error('OpenAI API key not configured');
       
@@ -93,11 +95,11 @@ ${conversationHistory}
         'Authorization': `Bearer ${apiKey}`
       };
       requestBody = {
-        model: extractorAgent.llm_model,
+        model: llmModel,
         messages: [{ role: 'user', content: fullPrompt }],
         max_tokens: 2000
       };
-    } else if (extractorAgent.llm_model.startsWith('grok')) {
+    } else if (llmModel.startsWith('grok')) {
       apiKey = Deno.env.get('XAI_API_KEY');
       if (!apiKey) throw new Error('xAI API key not configured');
       
@@ -107,12 +109,12 @@ ${conversationHistory}
         'Authorization': `Bearer ${apiKey}`
       };
       requestBody = {
-        model: extractorAgent.llm_model,
+        model: llmModel,
         messages: [{ role: 'user', content: fullPrompt }],
         max_tokens: 2000
       };
     } else {
-      throw new Error(`Unsupported LLM model: ${extractorAgent.llm_model}`);
+      throw new Error(`Unsupported LLM model: ${llmModel}`);
     }
 
     // Call the configured LLM API
@@ -132,9 +134,9 @@ ${conversationHistory}
     
     // Extract data based on LLM type
     let extractedDataText = '';
-    if (extractorAgent.llm_model.startsWith('claude')) {
+    if (llmModel.startsWith('claude')) {
       extractedDataText = data.content[0].text.trim();
-    } else if (extractorAgent.llm_model.startsWith('gpt') || extractorAgent.llm_model.startsWith('grok')) {
+    } else if (llmModel.startsWith('gpt') || llmModel.startsWith('grok')) {
       extractedDataText = data.choices[0].message.content.trim();
     }
 
@@ -200,7 +202,7 @@ ${conversationHistory}
     return new Response(JSON.stringify({
       customerData: extractedData,
       contextUpdated: true,
-      llmModel: extractorAgent.llm_model
+      llmModel: llmModel
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
