@@ -1,18 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Search, MoreVertical, Paperclip, Smile, Send, Mic, ArrowDown, UserCheck, Bot } from 'lucide-react';
+import { Search, MoreVertical, Paperclip, Smile, Send, Mic, ArrowDown, UserCheck, Bot, FileText } from 'lucide-react';
 import { useConversation } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
 import { useCreateMessage } from '@/hooks/useMessages';
 import { useRealtimeMessages } from '@/hooks/useRealtimeSubscription';
 import { useAssumeConversation, useReturnConversationToBot } from '@/hooks/useConversationActions';
+import { useGenerateLeadSummary, useSendLeadToVendor, useVendors } from '@/hooks/useLeadSummary';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WhatsAppMessageBubble } from './WhatsAppMessageBubble';
+import { LeadSummaryModal } from './LeadSummaryModal';
 
 interface WhatsAppChatAreaProps {
   conversationId: string;
@@ -21,6 +23,8 @@ interface WhatsAppChatAreaProps {
 export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
   const [messageText, setMessageText] = useState('');
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -34,6 +38,11 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
   const createMessage = useCreateMessage();
   const assumeConversation = useAssumeConversation();
   const returnToBot = useReturnConversationToBot();
+
+  // Lead summary hooks
+  const generateSummary = useGenerateLeadSummary();
+  const sendToVendor = useSendLeadToVendor();
+  const { data: vendors } = useVendors();
 
   // Enable realtime updates
   useRealtimeMessages(conversationId);
@@ -79,6 +88,32 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
+    }
+  };
+
+  // Handle summary generation
+  const handleGenerateSummary = async () => {
+    try {
+      const data = await generateSummary.mutateAsync(conversationId);
+      setSummaryData(data);
+      setShowSummaryModal(true);
+    } catch (error) {
+      console.error('Erro ao gerar resumo:', error);
+    }
+  };
+
+  // Handle send to vendor
+  const handleSendToVendor = async (vendorId: string, editedSummary: string) => {
+    try {
+      await sendToVendor.mutateAsync({
+        conversationId,
+        vendorId,
+        summary: editedSummary,
+        sentByAgentId: undefined // TODO: Get current user ID
+      });
+      setShowSummaryModal(false);
+    } catch (error) {
+      console.error('Erro ao enviar lead:', error);
     }
   };
 
@@ -181,6 +216,18 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* Lead Actions */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateSummary}
+            disabled={generateSummary.isPending}
+            className="flex items-center gap-2 text-xs px-2"
+          >
+            <FileText className="h-4 w-4" />
+            {generateSummary.isPending ? 'Gerando...' : 'Gerar Resumo'}
+          </Button>
+
           {/* Conversation Control Buttons */}
           {conversation.status === 'in_bot' && (
             <Button 
@@ -309,6 +356,16 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
           </Button>
         </div>
       </div>
+
+      {/* Lead Summary Modal */}
+      <LeadSummaryModal
+        open={showSummaryModal}
+        onOpenChange={setShowSummaryModal}
+        summaryData={summaryData}
+        vendors={vendors || []}
+        onSendToVendor={handleSendToVendor}
+        sending={sendToVendor.isPending}
+      />
     </div>
   );
 }

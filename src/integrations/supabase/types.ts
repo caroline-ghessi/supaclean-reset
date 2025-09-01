@@ -817,6 +817,72 @@ export type Database = {
           },
         ]
       }
+      lead_bot_config: {
+        Row: {
+          bot_name: string
+          created_at: string
+          id: string
+          is_active: boolean
+          phone_number: string
+          updated_at: string
+          whapi_token: string
+        }
+        Insert: {
+          bot_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          phone_number: string
+          updated_at?: string
+          whapi_token: string
+        }
+        Update: {
+          bot_name?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          phone_number?: string
+          updated_at?: string
+          whapi_token?: string
+        }
+        Relationships: []
+      }
+      lead_distributions: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          metadata: Json | null
+          sent_at: string
+          sent_by_agent_id: string | null
+          status: string | null
+          summary_text: string
+          vendor_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          sent_at?: string
+          sent_by_agent_id?: string | null
+          status?: string | null
+          summary_text: string
+          vendor_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          sent_at?: string
+          sent_by_agent_id?: string | null
+          status?: string | null
+          summary_text?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
       message_buffers: {
         Row: {
           buffer_started_at: string | null
