@@ -27,15 +27,11 @@ serve(async (req) => {
     }
 
     // 1. Buscar configuração do bot de leads
-    const { data: botConfig, error: botError } = await supabase
-      .from('lead_bot_config')
-      .select('*')
-      .eq('is_active', true)
-      .single();
-
-    if (botError || !botConfig) {
+    const leadBotToken = Deno.env.get('LEAD_BOT_WHAPI_TOKEN');
+    
+    if (!leadBotToken || leadBotToken === 'TOKEN_PLACEHOLDER') {
       return new Response(
-        JSON.stringify({ error: 'Bot de leads não configurado' }),
+        JSON.stringify({ error: 'Token do Bot de Leads não configurado' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -71,7 +67,7 @@ serve(async (req) => {
     const whapiResponse = await fetch(`https://gate.whapi.cloud/messages/text`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${botConfig.whapi_token}`,
+        'Authorization': `Bearer ${leadBotToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -98,7 +94,7 @@ serve(async (req) => {
         metadata: {
           whapi_message_id: whapiData.id,
           vendor_phone: vendor.phone_number,
-          bot_used: botConfig.bot_name
+          bot_used: 'BOT DE LEADS'
         }
       })
       .select()
