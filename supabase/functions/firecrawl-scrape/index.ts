@@ -5,9 +5,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
 };
 
+// Verificar variáveis de ambiente
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const firecrawlApiKey = Deno.env.get('FIRECRAWL_API_KEY');
+
+console.log('🔧 Environment variables check:', {
+  hasSupabaseUrl: !!supabaseUrl,
+  hasSupabaseKey: !!supabaseServiceKey,
+  hasFirecrawlKey: !!firecrawlApiKey,
+  supabaseUrlPreview: supabaseUrl?.substring(0, 20) + '...',
+  firecrawlKeyPreview: firecrawlApiKey?.substring(0, 10) + '...'
+});
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -226,13 +235,39 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Firecrawl processing error:', error);
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Log adicional para debug
+    console.error('❌ Request URL:', req.url);
+    console.error('❌ Request method:', req.method);
+    
+    let errorMessage = 'Unknown error occurred';
+    let errorDetails = null;
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorDetails = {
+        name: error.name,
+        stack: error.stack
+      };
+    } else {
+      errorMessage = String(error);
+    }
     
     // Resposta de erro melhorada
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
+      error: errorMessage,
+      errorDetails,
       timestamp: new Date().toISOString(),
-      endpoint: 'firecrawl-scrape'
+      endpoint: 'firecrawl-scrape',
+      debug: {
+        hasFirecrawlKey: !!firecrawlApiKey,
+        hasSupabaseUrl: !!supabaseUrl,
+        hasSupabaseKey: !!supabaseServiceKey
+      }
     }), {
       status: 500,
       headers: {
