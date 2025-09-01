@@ -125,15 +125,27 @@ export function WhatsAppConversationItem({ conversation, isSelected, onClick }: 
 
         {/* Status and Score Row */}
         <div className="flex items-center justify-between mt-1">
-          <Badge 
-            variant="outline" 
-            className={`text-xs h-5 ${getStatusColor(conversation.status)}`}
-          >
-            {conversation.status === 'waiting' && 'Aguardando'}
-            {conversation.status === 'active' && 'Ativo'}
-            {conversation.status === 'qualified' && 'Qualificado'}
-            {conversation.status === 'in_bot' && 'Bot'}
-          </Badge>
+          <div className="flex items-center gap-1">
+            <Badge 
+              variant="outline" 
+              className={`text-xs h-5 ${getStatusColor(conversation.status)}`}
+            >
+              {conversation.status === 'waiting' && 'Aguardando'}
+              {conversation.status === 'active' && 'Ativo'}
+              {conversation.status === 'qualified' && 'Qualificado'}
+              {conversation.status === 'in_bot' && 'Bot'}
+            </Badge>
+            
+            {(conversation as any).isDistributed && (
+              <Badge 
+                variant="outline" 
+                className="text-xs h-5 bg-purple-100 text-purple-700 border-purple-200"
+                title={`Enviado para ${(conversation as any).distributedTo || 'vendedor'}`}
+              >
+                📨 Enviado
+              </Badge>
+            )}
+          </div>
           
           {conversation.lead_score !== null && (
             <Badge variant="secondary" className="text-xs h-5">

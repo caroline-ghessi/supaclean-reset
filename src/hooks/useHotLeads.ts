@@ -108,9 +108,11 @@ export function useHotLeads(params: UseHotLeadsParams = {}) {
             sender_type,
             sender_name
           ),
-          project_contexts(*)
+          project_contexts(*),
+          lead_distributions(id, sent_at)
         `)
         .or('lead_temperature.eq.hot,lead_score.gte.70')
+        .is('lead_distributions.id', null)
         .order('lead_score', { ascending: false })
         .order('last_message_at', { ascending: false });
 
@@ -220,11 +222,12 @@ export function useHotLeadsStats() {
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
       const today = new Date().toISOString().split('T')[0];
       
-      // Get leads waiting for response (>2h)
+      // Get leads waiting for response (>2h) that haven't been distributed
       const { data: waitingLeads } = await supabase
         .from('conversations')
-        .select('id, last_message_at, lead_score')
+        .select('id, last_message_at, lead_score, lead_distributions(id)')
         .or('lead_temperature.eq.hot,lead_score.gte.70')
+        .is('lead_distributions.id', null)
         .lt('last_message_at', twoHoursAgo);
 
       // Get all hot leads for value calculation

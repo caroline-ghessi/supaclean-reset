@@ -9,7 +9,10 @@ export function useConversations() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('conversations')
-        .select('*')
+        .select(`
+          *,
+          lead_distributions(id, sent_at, vendor_id, vendors(name))
+        `)
         .eq('source', 'whatsapp')
       .order('last_message_at', { ascending: false })
       .limit(50);
@@ -25,6 +28,9 @@ export function useConversations() {
         customer_name: conv.customer_name || conv.whatsapp_name || 'Usuário',
         lastMessage: undefined,
         unreadCount: 0,
+        isDistributed: conv.lead_distributions && conv.lead_distributions.length > 0,
+        distributedTo: conv.lead_distributions?.[0]?.vendors?.name || null,
+        distributedAt: conv.lead_distributions?.[0]?.sent_at || null,
         created_at: new Date(conv.created_at || ''),
         updated_at: new Date(conv.updated_at || ''),
         first_message_at: new Date(conv.first_message_at || ''),
