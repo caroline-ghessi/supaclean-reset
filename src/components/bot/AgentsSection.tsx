@@ -6,7 +6,7 @@ import {
   Sparkles, Rocket, Database, ArrowRight, Layers,
   Sun, Home, Hammer, Wrench, PaintBucket, Eye, Search
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSpecialistAgents, useAgentsByType } from '@/hooks/useAgentConfigs';
+import { useGeneralAgent } from '@/hooks/useAgentPrompts';
 import { SpyAgentCard } from './SpyAgentCard';
 import { EnhancedPromptEditor } from './EnhancedPromptEditor';
 
@@ -109,8 +110,11 @@ interface AgentsSectionProps {
 }
 
 export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSectionProps) {
-  const [activeTab, setActiveTab] = useState<'specialists' | 'spies' | 'leads'>('specialists');
-  const [selectedAgentType, setSelectedAgentType] = useState<'specialist' | 'classifier' | 'extractor' | 'lead_scorer'>('specialist');
+  const [activeTab, setActiveTab] = useState<'general' | 'specialists' | 'spies' | 'leads'>('general');
+  const [selectedAgentType, setSelectedAgentType] = useState<'general' | 'specialist' | 'classifier' | 'extractor' | 'lead_scorer'>('general');
+  
+  // Buscar agente geral
+  const { data: generalAgent, isLoading: loadingGeneral } = useGeneralAgent();
   
   // Buscar agentes reais do banco de dados
   const { data: realSpecialistAgents, isLoading: loadingSpecialists } = useSpecialistAgents();
@@ -157,9 +161,13 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
 
   return (
     <div className="space-y-6">
-      {/* Tabs para Especialistas, Espiões e Leads */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'specialists' | 'spies' | 'leads')}>
-        <TabsList className="grid w-full grid-cols-3">
+      {/* Tabs para Geral, Especialistas, Espiões e Leads */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'general' | 'specialists' | 'spies' | 'leads')}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="general" className="flex items-center gap-2">
+            <Bot className="w-4 h-4" />
+            Atendimento Geral
+          </TabsTrigger>
           <TabsTrigger value="specialists" className="flex items-center gap-2">
             <Brain className="w-4 h-4" />
             Especialistas
@@ -173,6 +181,132 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
             Avaliadores de Leads
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="general">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Card do Agente Geral */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bot className="w-5 h-5 text-primary" />
+                    Atendimento Geral
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingGeneral ? (
+                    <div className="h-16 bg-muted rounded animate-pulse" />
+                  ) : generalAgent ? (
+                    <div
+                      onClick={() => {
+                        setSelectedAgent(generalAgent.id);
+                        setSelectedAgentType('general');
+                      }}
+                      className={`
+                        p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md
+                        ${selectedAgent === generalAgent.id && selectedAgentType === 'general'
+                          ? 'bg-primary/10 border-primary shadow-sm' 
+                          : 'bg-card border-border hover:border-primary/50'
+                        }
+                      `}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`
+                          p-2 rounded-lg
+                          ${selectedAgent === generalAgent.id && selectedAgentType === 'general' 
+                            ? 'bg-primary text-primary-foreground' 
+                            : 'bg-muted text-muted-foreground'
+                          }
+                        `}>
+                          <Bot className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm text-foreground truncate">
+                            {generalAgent.name}
+                          </h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                            {generalAgent.description}
+                          </p>
+                          <Badge variant="default" className="text-xs">
+                            Ativo
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-muted-foreground py-4">
+                      Carregando agente geral...
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Editor do Agente Geral */}
+            <div className="lg:col-span-2">
+              {selectedAgent && selectedAgentType === 'general' && generalAgent ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Bot className="w-5 h-5" />
+                      Editor do Agente Geral
+                    </CardTitle>
+                    <CardDescription>
+                      Configure o prompt do agente responsável pelo atendimento inicial e casos não especializados.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div>
+                      <Label htmlFor="general-prompt">Prompt Principal</Label>
+                      <Textarea
+                        id="general-prompt"
+                        value={generalAgent.knowledge_base || ''}
+                        readOnly
+                        rows={15}
+                        className="mt-2"
+                        placeholder="O prompt do agente geral será carregado aqui..."
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Para editar este prompt, acesse a tabela 'agent_prompts' no banco de dados e modifique o registro com category='geral'.
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Modelo LLM</Label>
+                        <div className="mt-2">
+                          <Badge variant="outline">
+                            {generalAgent.llm_model || 'claude-3-5-sonnet-20241022'}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Status</Label>
+                        <div className="mt-2">
+                          <Badge variant={generalAgent.is_active ? 'default' : 'secondary'}>
+                            {generalAgent.is_active ? 'Ativo' : 'Inativo'}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                    <Bot className="w-12 h-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">
+                      Configure o Agente Geral
+                    </h3>
+                    <p className="text-muted-foreground max-w-md">
+                      Selecione o agente geral ao lado para visualizar e gerenciar suas configurações.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
+        </TabsContent>
 
         <TabsContent value="specialists">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
