@@ -65,32 +65,24 @@ export function AnalyticsOverview({ period }: AnalyticsOverviewProps) {
     {
       title: 'Total de Conversas',
       value: conversationData?.totalConversations || 0,
-      change: '+12%',
-      trend: 'up' as const,
       icon: MessageCircle,
       color: 'text-primary'
     },
     {
       title: 'Vendedores Ativos',
       value: vendorData?.totalVendors || 0,
-      change: '+2',
-      trend: 'up' as const,
       icon: Users,
       color: 'text-primary'
     },
     {
-      title: 'Tempo Médio Resposta',
-      value: `${vendorData?.avgResponseTime || 0}min`,
-      change: '+15s',
-      trend: 'down' as const,
-      icon: Clock,
-      color: 'text-muted-foreground'
+      title: 'Leads Quentes',
+      value: leadData?.hotLeads || 0,
+      icon: Target,
+      color: 'text-lead-hot'
     },
     {
       title: 'Taxa de Conversão',
       value: `${leadData?.overallConversionRate || 0}%`,
-      change: '+0.5%',
-      trend: 'up' as const,
       icon: Target,
       color: 'text-primary'
     }
@@ -117,17 +109,6 @@ export function AnalyticsOverview({ period }: AnalyticsOverviewProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">{kpi.value}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                {kpi.trend === 'up' ? (
-                  <TrendingUp className="w-3 h-3 mr-1 text-primary" />
-                ) : (
-                  <TrendingDown className="w-3 h-3 mr-1 text-destructive" />
-                )}
-                <span className={kpi.trend === 'up' ? 'text-primary' : 'text-destructive'}>
-                  {kpi.change}
-                </span>
-                <span className="ml-1">vs. período anterior</span>
-              </div>
             </CardContent>
           </Card>
         ))}

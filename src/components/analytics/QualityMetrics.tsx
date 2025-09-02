@@ -28,8 +28,8 @@ import {
   Users,
   MessageSquare
 } from 'lucide-react';
-import { useVendorQuality } from '@/hooks/useVendorQuality';
 import { useVendors } from '@/hooks/useVendors';
+import { useRealQualityMetrics } from '@/hooks/useRealQualityMetrics';
 
 interface QualityMetricsProps {
   period: string;
@@ -58,37 +58,9 @@ const getResponseTimeLevel = (minutes: number) => {
 
 export function QualityMetrics({ period }: QualityMetricsProps) {
   const { data: vendors, isLoading: vendorsLoading } = useVendors();
-  
-  // Simular dados de qualidade agregados
-  const mockQualityData = {
-    avgResponseTime: 3.2,
-    avgQualityScore: 7.8,
-    avgSatisfactionRate: 85,
-    totalAlerts: 3,
-    resolvedIssues: 12,
-    responseTimeDistribution: [
-      { range: '0-2min', count: 45, percentage: 35 },
-      { range: '2-5min', count: 52, percentage: 40 },
-      { range: '5-10min', count: 23, percentage: 18 },
-      { range: '10min+', count: 9, percentage: 7 }
-    ],
-    qualityTrend: [
-      { period: '1', responseTime: 3.5, quality: 7.2, satisfaction: 82 },
-      { period: '2', responseTime: 3.8, quality: 7.5, satisfaction: 84 },
-      { period: '3', responseTime: 3.2, quality: 7.8, satisfaction: 85 },
-      { period: '4', responseTime: 3.0, quality: 8.1, satisfaction: 87 },
-      { period: '5', responseTime: 2.8, quality: 8.3, satisfaction: 89 },
-      { period: '6', responseTime: 3.2, quality: 7.8, satisfaction: 85 },
-      { period: '7', responseTime: 3.2, quality: 7.8, satisfaction: 85 }
-    ],
-    alerts: [
-      { vendor: 'João Silva', issue: 'Tempo de resposta alto', severity: 'medium' },
-      { vendor: 'Maria Santos', issue: 'Score de qualidade baixo', severity: 'high' },
-      { vendor: 'Pedro Costa', issue: 'Taxa de resolução baixa', severity: 'low' }
-    ]
-  };
+  const { data: qualityData, isLoading: qualityLoading } = useRealQualityMetrics(period);
 
-  if (vendorsLoading) {
+  if (vendorsLoading || qualityLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {[...Array(4)].map((_, i) => (
@@ -105,22 +77,38 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
     );
   }
 
-  const responseTimeQuality = getResponseTimeLevel(mockQualityData.avgResponseTime);
-  const qualityScoreLevel = getQualityLevel(mockQualityData.avgQualityScore);
+  if (!qualityData?.hasData) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Activity className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">
+            Dados de Qualidade Não Disponíveis
+          </h3>
+          <p className="text-muted-foreground">
+            Não há métricas de qualidade registradas para o período selecionado.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const responseTimeQuality = qualityData.avgResponseTime 
+    ? getResponseTimeLevel(qualityData.avgResponseTime)
+    : { level: 'poor', label: 'N/A', color: QUALITY_COLORS.poor };
+    
+  const qualityScoreLevel = qualityData.avgQualityScore 
+    ? getQualityLevel(qualityData.avgQualityScore)
+    : { level: 'poor', label: 'N/A', color: QUALITY_COLORS.poor };
 
   // Dados para gráfico radial
-  const radialData = [
+  const radialData = qualityData.avgQualityScore ? [
     {
       name: 'Qualidade',
-      value: mockQualityData.avgQualityScore * 10,
+      value: qualityData.avgQualityScore * 10,
       fill: qualityScoreLevel.color
-    },
-    {
-      name: 'Satisfação',
-      value: mockQualityData.avgSatisfactionRate,
-      fill: QUALITY_COLORS.good
     }
-  ];
+  ] : [];
 
   return (
     <div className="space-y-6">
@@ -135,7 +123,7 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {mockQualityData.avgResponseTime}min
+              {qualityData.avgResponseTime ? `${qualityData.avgResponseTime}min` : 'N/A'}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <Badge 
@@ -157,7 +145,7 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {mockQualityData.avgQualityScore}/10
+              {qualityData.avgQualityScore ? `${qualityData.avgQualityScore}/10` : 'N/A'}
             </div>
             <div className="flex items-center gap-2 mt-1">
               <Badge 
@@ -173,18 +161,17 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
         <Card className="border-border">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Taxa de Satisfação
+              Conversas Analisadas
             </CardTitle>
-            <CheckCircle className="w-4 h-4 text-muted-foreground" />
+            <MessageSquare className="w-4 h-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {mockQualityData.avgSatisfactionRate}%
+              {qualityData.responseTimeDistribution.reduce((sum, range) => sum + range.count, 0)}
             </div>
-            <Progress 
-              value={mockQualityData.avgSatisfactionRate} 
-              className="h-2 mt-2"
-            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Conversas com métricas
+            </p>
           </CardContent>
         </Card>
 
@@ -197,43 +184,27 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">
-              {mockQualityData.totalAlerts}
+              {qualityData.totalAlerts}
             </div>
             <p className="text-xs text-muted-foreground">
-              {mockQualityData.resolvedIssues} resolvidos este mês
+              Nenhum alerta ativo
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Alerts Section */}
-      {mockQualityData.alerts.length > 0 && (
+      {qualityData.totalAlerts > 0 ? (
         <div className="space-y-3">
           <h3 className="text-lg font-medium text-foreground">Alertas de Qualidade</h3>
-          {mockQualityData.alerts.map((alert, index) => (
-            <Alert key={index} className="border-border">
-              <AlertTriangle className={`w-4 h-4 ${
-                alert.severity === 'high' ? 'text-destructive' :
-                alert.severity === 'medium' ? 'text-lead-warm' : 'text-muted-foreground'
-              }`} />
-              <AlertDescription>
-                <span className="font-medium">{alert.vendor}:</span> {alert.issue}
-                <Badge 
-                  variant="secondary" 
-                  className={`ml-2 ${
-                    alert.severity === 'high' ? 'bg-red-100 text-red-800' :
-                    alert.severity === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {alert.severity === 'high' ? 'Alta' : 
-                   alert.severity === 'medium' ? 'Média' : 'Baixa'}
-                </Badge>
-              </AlertDescription>
-            </Alert>
-          ))}
+          <Alert className="border-border">
+            <CheckCircle className="w-4 h-4 text-green-600" />
+            <AlertDescription>
+              Nenhum alerta de qualidade no momento. Todas as métricas estão dentro dos parâmetros esperados.
+            </AlertDescription>
+          </Alert>
         </div>
-      )}
+      ) : null}
 
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -247,7 +218,7 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={mockQualityData.qualityTrend}>
+              <LineChart data={qualityData.qualityTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis 
                   dataKey="period" 
@@ -270,14 +241,14 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
                   dataKey="quality" 
                   stroke={QUALITY_COLORS.good}
                   strokeWidth={2}
-                  name="Qualidade"
+                  name="Score de Qualidade"
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="satisfaction" 
-                  stroke={QUALITY_COLORS.excellent}
+                  dataKey="responseTime" 
+                  stroke={QUALITY_COLORS.average}
                   strokeWidth={2}
-                  name="Satisfação (%)"
+                  name="Tempo de Resposta (min)"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -324,7 +295,7 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
         <CardContent>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-4">
-              {mockQualityData.responseTimeDistribution.map((range, index) => (
+              {qualityData.responseTimeDistribution.map((range, index) => (
                 <div key={range.range} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-foreground">{range.range}</span>
@@ -342,7 +313,7 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
             </div>
             
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={mockQualityData.responseTimeDistribution}>
+              <BarChart data={qualityData.responseTimeDistribution}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis 
                   dataKey="range" 
@@ -382,10 +353,7 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {vendors?.slice(0, 6).map((vendor) => {
-                  const quality = Number((Math.random() * 3 + 7).toFixed(1)); // 7-10
-                  const responseTime = Number((Math.random() * 4 + 1).toFixed(1)); // 1-5 min
-              const qualityLevel = getQualityLevel(quality);
-              const timeLevel = getResponseTimeLevel(responseTime);
+              const hasStats = vendor.stats && Object.keys(vendor.stats).length > 0;
               
               return (
                 <div key={vendor.id} className="p-4 border border-border rounded-lg space-y-3">
@@ -401,23 +369,22 @@ export function QualityMetrics({ period }: QualityMetricsProps) {
                   
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Qualidade</span>
-                      <span className="text-sm font-medium">{quality.toFixed(1)}/10</span>
+                      <span className="text-sm text-muted-foreground">Conversas</span>
+                      <span className="text-sm font-medium">
+                        {hasStats ? vendor.stats.total_conversations : 'N/A'}
+                      </span>
                     </div>
-                    <Progress value={quality * 10} className="h-2" />
                   </div>
                   
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Tempo Resp.</span>
-                      <span className="text-sm font-medium">{responseTime.toFixed(1)}min</span>
+                      <span className="text-sm text-muted-foreground">Qualidade</span>
+                      <span className="text-sm font-medium">
+                        {hasStats && vendor.stats.quality_score 
+                          ? `${vendor.stats.quality_score.toFixed(1)}/10` 
+                          : 'Sem dados'}
+                      </span>
                     </div>
-                    <Badge 
-                      variant="secondary"
-                      style={{ backgroundColor: timeLevel.color + '20', color: timeLevel.color }}
-                    >
-                      {timeLevel.label}
-                    </Badge>
                   </div>
                 </div>
               );

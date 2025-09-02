@@ -129,11 +129,11 @@ export function useVendorPerformance(period: string = '7d') {
 
         const avgResponseTime = vendorQuality.length > 0
           ? vendorQuality.reduce((sum, q) => sum + (q.response_time_avg_minutes || 0), 0) / vendorQuality.length
-          : Math.random() * 5 + 1; // Fallback simulado
+          : 0;
 
         const qualityScore = vendorQuality.length > 0
           ? vendorQuality.reduce((sum, q) => sum + (q.automated_quality_score || 0), 0) / vendorQuality.length
-          : Math.random() * 3 + 7; // Fallback simulado
+          : 0;
 
         const conversionRate = totalConversations > 0
           ? (vendorConversations.filter(c => c.conversation_status === 'completed').length / totalConversations) * 100
@@ -177,15 +177,31 @@ export function useVendorPerformance(period: string = '7d') {
         })
         .slice(0, 3);
 
-      // Dados de comparação temporal (simulado)
+      // Dados de comparação temporal baseados em dados reais
       const performanceComparison = [];
       for (let i = 6; i >= 0; i--) {
         const date = subDays(new Date(), i);
+        const dayQuality = qualityMetrics?.filter(q => 
+          format(new Date(q.metric_date), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+        ) || [];
+        
+        const dayResponseTime = dayQuality.length > 0
+          ? dayQuality.reduce((sum, q) => sum + (q.response_time_avg_minutes || 0), 0) / dayQuality.length
+          : 0;
+          
+        const dayConversations = conversations?.filter(c => 
+          format(new Date(c.created_at), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+        ).length || 0;
+        
+        const dayQualityScore = dayQuality.length > 0
+          ? dayQuality.reduce((sum, q) => sum + (q.automated_quality_score || 0), 0) / dayQuality.length
+          : 0;
+
         performanceComparison.push({
           period: format(date, 'dd/MM'),
-          responseTime: Math.random() * 2 + avgResponseTime - 1,
-          conversations: Math.floor(Math.random() * 20 + 10),
-          quality: Math.random() * 2 + avgQualityScore - 1
+          responseTime: Math.round(dayResponseTime * 10) / 10,
+          conversations: dayConversations,
+          quality: Math.round(dayQualityScore * 10) / 10
         });
       }
 
