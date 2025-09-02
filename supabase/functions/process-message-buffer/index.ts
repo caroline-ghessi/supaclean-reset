@@ -132,14 +132,37 @@ Deno.serve(async (req) => {
     let newProductGroup = conversation.product_group;
     
     if (classificationResult.data?.productGroup) {
-      newProductGroup = classificationResult.data.productGroup;
+      // APLICAR LOCK DE CATEGORIA NO PROCESSAMENTO EM LOTE
+      const SPECIFIC_CATEGORIES = ['ferramentas', 'telha_shingle', 'energia_solar', 'steel_frame', 'drywall_divisorias', 'pisos', 'acabamentos', 'forros'];
       
-      // Atualizar product_group na conversa se mudou
-      if (newProductGroup !== conversation.product_group) {
-        await supabase
-          .from('conversations')
-          .update({ product_group: newProductGroup })
-          .eq('id', conversationId);
+      // Verificar se categoria atual é específica (bloqueada)
+      if (conversation.product_group && SPECIFIC_CATEGORIES.includes(conversation.product_group)) {
+        console.log(`🔒 Buffer processing category update blocked: ${conversation.product_group} is locked`);
+        newProductGroup = conversation.product_group; // Manter categoria atual
+        
+        // Log da tentativa bloqueada
+        await supabase.from('system_logs').insert({
+          level: 'info',
+          source: 'process-message-buffer-category-lock',
+          message: 'Buffer processing category change blocked by lock system',
+          data: { 
+            conversationId,
+            currentCategory: conversation.product_group,
+            attemptedCategory: classificationResult.data.productGroup,
+            combinedMessage,
+            classificationResult: classificationResult.data
+          }
+        });
+      } else {
+        newProductGroup = classificationResult.data.productGroup;
+        
+        // Atualizar product_group na conversa se mudou
+        if (newProductGroup !== conversation.product_group) {
+          await supabase
+            .from('conversations')
+            .update({ product_group: newProductGroup })
+            .eq('id', conversationId);
+        }
       }
     }
 

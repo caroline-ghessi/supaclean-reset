@@ -20,6 +20,24 @@ serve(async (req) => {
 
     console.log('Classifying message:', message);
 
+    // DEFINIR CATEGORIAS ESPECÍFICAS E GENÉRICAS
+    const GENERIC_CATEGORIES = ['saudacao', 'institucional', 'indefinido', 'geral'];
+    const SPECIFIC_CATEGORIES = ['ferramentas', 'telha_shingle', 'energia_solar', 'steel_frame', 'drywall_divisorias', 'pisos', 'acabamentos', 'forros'];
+
+    // VERIFICAR SE CATEGORIA ATUAL É ESPECÍFICA (LOCK DE CATEGORIA)
+    if (currentProductGroup && SPECIFIC_CATEGORIES.includes(currentProductGroup)) {
+      console.log(`🔒 Category lock active: ${currentProductGroup} cannot be changed`);
+      
+      return new Response(JSON.stringify({
+        productGroup: currentProductGroup,
+        confidence: 0.9,
+        rawClassification: currentProductGroup,
+        categoryLocked: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

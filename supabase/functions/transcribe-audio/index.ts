@@ -204,8 +204,29 @@ async function processTranscribedMessage(conversationId: string, transcriptionTe
           .eq('id', conversationId)
           .single();
           
-        // Só atualizar se houve mudança de categoria
-        if (currentConversation && currentConversation.product_group !== classificationResult.productGroup) {
+        // APLICAR LOCK DE CATEGORIA PARA TRANSCRIÇÕES
+        const SPECIFIC_CATEGORIES = ['ferramentas', 'telha_shingle', 'energia_solar', 'steel_frame', 'drywall_divisorias', 'pisos', 'acabamentos', 'forros'];
+        
+        // Verificar se categoria atual é específica (bloqueada)
+        if (currentConversation?.product_group && SPECIFIC_CATEGORIES.includes(currentConversation.product_group)) {
+          console.log(`🔒 Transcription category update blocked: ${currentConversation.product_group} is locked`);
+          
+          // Log da tentativa bloqueada
+          await supabase.from('system_logs').insert({
+            level: 'info',
+            source: 'transcribe-audio-category-lock',
+            message: 'Transcription category change blocked by lock system',
+            data: { 
+              conversationId,
+              currentCategory: currentConversation.product_group,
+              attemptedCategory: classificationResult.productGroup,
+              transcriptionText,
+              classificationResult
+            }
+          });
+        }
+        // Só atualizar se houve mudança de categoria E categoria atual não é específica
+        else if (currentConversation && currentConversation.product_group !== classificationResult.productGroup) {
           console.log(`🔄 Updating conversation category from transcription: ${currentConversation.product_group} → ${classificationResult.productGroup}`);
           
           await supabase

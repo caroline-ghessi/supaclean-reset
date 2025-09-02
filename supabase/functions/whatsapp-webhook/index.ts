@@ -297,8 +297,29 @@ async function processMessageWithAI(conversationId: string, messageContent: stri
             .eq('id', conversationId)
             .single();
             
-          // Só atualizar se houve mudança de categoria
-          if (currentConversation && currentConversation.product_group !== classificationResult.productGroup) {
+          // VERIFICAR LOCK DE CATEGORIA ANTES DE ATUALIZAR
+          const SPECIFIC_CATEGORIES = ['ferramentas', 'telha_shingle', 'energia_solar', 'steel_frame', 'drywall_divisorias', 'pisos', 'acabamentos', 'forros'];
+          
+          // Se categoria atual é específica, não permitir mudança
+          if (currentConversation.product_group && SPECIFIC_CATEGORIES.includes(currentConversation.product_group)) {
+            console.log(`🔒 Category update blocked: ${currentConversation.product_group} is locked and cannot be changed to ${classificationResult.productGroup}`);
+            
+            // Log da tentativa bloqueada
+            await supabase.from('system_logs').insert({
+              level: 'info',
+              source: 'whatsapp-webhook-category-lock',
+              message: 'Category change blocked by lock system',
+              data: { 
+                conversationId,
+                currentCategory: currentConversation.product_group,
+                attemptedCategory: classificationResult.productGroup,
+                message: messageContent,
+                classificationResult
+              }
+            });
+          }
+          // Só atualizar se houve mudança de categoria E categoria atual não é específica
+          else if (currentConversation && currentConversation.product_group !== classificationResult.productGroup) {
             console.log(`🔄 Updating conversation category: ${currentConversation.product_group} → ${classificationResult.productGroup}`);
             
             // Buscar agente especialista para nova categoria
