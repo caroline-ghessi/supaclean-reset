@@ -22,6 +22,7 @@ import { EnhancedPromptEditor } from './EnhancedPromptEditor';
 import { PromptAgentEditor } from './PromptAgentEditor';
 import { LeadSummaryAgentSection } from './LeadSummaryAgentSection';
 import { AgentConfigEditor } from './AgentConfigEditor';
+import { QualityMonitorAgentSection } from './QualityMonitorAgentSection';
 
 // Função para mapear categorias para ícones
 function getIconForCategory(category: string | null) {
@@ -113,7 +114,7 @@ interface AgentsSectionProps {
 }
 
 export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSectionProps) {
-  const [activeTab, setActiveTab] = useState<'general' | 'specialists' | 'spies' | 'leads' | 'summary'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'specialists' | 'spies' | 'leads' | 'summary' | 'quality'>('general');
   const [selectedAgentType, setSelectedAgentType] = useState<'general' | 'specialist' | 'classifier' | 'extractor' | 'lead_scorer'>('general');
   
   // Gerenciador do agente geral
@@ -174,9 +175,9 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
 
   return (
     <div className="space-y-6">
-      {/* Tabs para Geral, Especialistas, Espiões, Leads e Resumos */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'general' | 'specialists' | 'spies' | 'leads' | 'summary')}>
-        <TabsList className="grid w-full grid-cols-5">
+      {/* Tabs para Geral, Especialistas, Espiões, Leads, Qualidade e Resumos */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'general' | 'specialists' | 'spies' | 'leads' | 'summary' | 'quality')}>
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <Bot className="w-4 h-4" />
             Atendimento Geral
@@ -192,6 +193,10 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
           <TabsTrigger value="leads" className="flex items-center gap-2">
             <Brain className="w-4 h-4" />
             Avaliadores de Leads
+          </TabsTrigger>
+          <TabsTrigger value="quality" className="flex items-center gap-2">
+            <Search className="w-4 h-4" />
+            Monitor de Qualidade
           </TabsTrigger>
           <TabsTrigger value="summary" className="flex items-center gap-2">
             <FileText className="w-4 h-4" />
@@ -639,6 +644,10 @@ export function AgentsSection({ selectedAgent, setSelectedAgent }: AgentsSection
               )}
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="quality">
+          <QualityMonitorAgentSection />
         </TabsContent>
 
         <TabsContent value="summary">

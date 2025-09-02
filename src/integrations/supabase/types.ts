@@ -1175,6 +1175,51 @@ export type Database = {
         }
         Relationships: []
       }
+      quality_alerts: {
+        Row: {
+          alert_type: string
+          analysis_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          title: string
+          vendor_id: string
+        }
+        Insert: {
+          alert_type: string
+          analysis_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          title: string
+          vendor_id: string
+        }
+        Update: {
+          alert_type?: string
+          analysis_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          title?: string
+          vendor_id?: string
+        }
+        Relationships: []
+      }
       quality_metrics: {
         Row: {
           automated_quality_score: number | null
@@ -1447,6 +1492,51 @@ export type Database = {
           },
         ]
       }
+      vendor_quality_analysis: {
+        Row: {
+          agent_id: string | null
+          analysis_data: Json
+          analyzed_at: string
+          conversation_id: number
+          created_at: string
+          criteria_scores: Json
+          id: string
+          issues_identified: string[] | null
+          message_id: number | null
+          quality_score: number | null
+          recommendations: string[] | null
+          vendor_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          analysis_data?: Json
+          analyzed_at?: string
+          conversation_id: number
+          created_at?: string
+          criteria_scores?: Json
+          id?: string
+          issues_identified?: string[] | null
+          message_id?: number | null
+          quality_score?: number | null
+          recommendations?: string[] | null
+          vendor_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          analysis_data?: Json
+          analyzed_at?: string
+          conversation_id?: number
+          created_at?: string
+          criteria_scores?: Json
+          id?: string
+          issues_identified?: string[] | null
+          message_id?: number | null
+          quality_score?: number | null
+          recommendations?: string[] | null
+          vendor_id?: string
+        }
+        Relationships: []
+      }
       vendors: {
         Row: {
           created_at: string | null
@@ -1697,6 +1787,7 @@ export type Database = {
         | "specialist"
         | "lead_scorer"
         | "summarizer"
+        | "quality_monitor"
       app_role: "admin" | "supervisor" | "atendente"
       conversation_status:
         | "waiting"
@@ -1856,6 +1947,7 @@ export const Constants = {
         "specialist",
         "lead_scorer",
         "summarizer",
+        "quality_monitor",
       ],
       app_role: ["admin", "supervisor", "atendente"],
       conversation_status: [
