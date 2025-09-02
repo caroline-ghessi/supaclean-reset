@@ -112,6 +112,7 @@ export function useHotLeads(params: UseHotLeadsParams = {}) {
           lead_distributions(id, sent_at)
         `)
         .or('lead_temperature.eq.hot,lead_score.gte.70')
+        .neq('source', 'test')
         .is('lead_distributions.id', null)
         .order('lead_score', { ascending: false })
         .order('last_message_at', { ascending: false });
@@ -227,6 +228,7 @@ export function useHotLeadsStats() {
         .from('conversations')
         .select('id, last_message_at, lead_score, lead_distributions(id)')
         .or('lead_temperature.eq.hot,lead_score.gte.70')
+        .neq('source', 'test')
         .is('lead_distributions.id', null)
         .lt('last_message_at', twoHoursAgo);
 
@@ -234,7 +236,8 @@ export function useHotLeadsStats() {
       const { data: allHotLeads } = await supabase
         .from('conversations')
         .select('id, product_group, project_contexts(*)')
-        .or('lead_temperature.eq.hot,lead_score.gte.70');
+        .or('lead_temperature.eq.hot,lead_score.gte.70')
+        .neq('source', 'test');
 
       // Calculate total estimated value
       const totalValue = allHotLeads?.reduce((sum, conv) => {
@@ -255,6 +258,7 @@ export function useHotLeadsStats() {
         .from('conversations')
         .select('id')
         .or('lead_temperature.eq.hot,lead_score.gte.70')
+        .neq('source', 'test')
         .gte('created_at', today + 'T00:00:00Z')
         .lte('created_at', today + 'T23:59:59Z');
 
