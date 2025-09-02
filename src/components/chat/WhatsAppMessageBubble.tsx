@@ -116,18 +116,41 @@ export function WhatsAppMessageBubble({ message }: WhatsAppMessageBubbleProps) {
     // Áudio
     if (mimeType.startsWith('audio/')) {
       return (
-        <div className="mt-2 flex items-center gap-3 p-3 bg-muted/10 rounded">
-          <Volume2 size={20} className="text-muted-foreground flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <audio 
-              controls 
-              className="w-full h-8"
-              preload="metadata"
-            >
-              <source src={message.media_url} type={mimeType} />
-              Seu navegador não suporta o elemento de áudio.
-            </audio>
+        <div className="mt-2 space-y-2">
+          <div className="flex items-center gap-3 p-3 bg-muted/10 rounded">
+            <Volume2 size={20} className="text-muted-foreground flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <audio 
+                controls 
+                className="w-full h-8"
+                preload="metadata"
+              >
+                <source src={message.media_url} type={mimeType} />
+                Seu navegador não suporta o elemento de áudio.
+              </audio>
+            </div>
           </div>
+          
+          {/* Transcrição */}
+          {message.transcription && (
+            <div className="p-3 bg-muted/5 rounded border-l-2 border-primary/20">
+              <p className="text-xs text-muted-foreground mb-1">Transcrição:</p>
+              <p className="text-sm italic">{message.transcription}</p>
+            </div>
+          )}
+          
+          {/* Status de Transcrição */}
+          {message.transcription_status === 'pending' && (
+            <div className="p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-700 dark:text-yellow-300">
+              🎵 Transcrevendo áudio...
+            </div>
+          )}
+          
+          {message.transcription_status === 'failed' && (
+            <div className="p-2 bg-red-50 dark:bg-red-900/20 rounded text-xs text-red-700 dark:text-red-300">
+              ❌ Erro na transcrição
+            </div>
+          )}
         </div>
       );
     }

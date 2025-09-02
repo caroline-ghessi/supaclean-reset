@@ -191,7 +191,7 @@ async function handleIncomingMessage(message: any, contact: any) {
     }
 
     // Save message
-    const { error: messageError } = await supabase.from('messages').insert({
+    const { data: savedMessage, error: messageError } = await supabase.from('messages').insert({
       conversation_id: conversation.id,
       whatsapp_message_id: whatsappMessageId,
       sender_type: 'customer',
@@ -199,8 +199,9 @@ async function handleIncomingMessage(message: any, contact: any) {
       media_type: mediaType,
       media_url: mediaUrl,
       status: 'delivered',
+      transcription_status: (type === 'audio' || type === 'voice') ? 'pending' : 'not_applicable',
       created_at: new Date(parseInt(timestamp) * 1000).toISOString()
-    });
+    }).select().single();
 
     if (messageError) {
       throw new Error(`Failed to save message: ${messageError.message}`);
@@ -214,6 +215,29 @@ async function handleIncomingMessage(message: any, contact: any) {
         status: 'in_bot'
       })
       .eq('id', conversation.id);
+
+    // Chamar transcrição para mensagens de áudio de forma assíncrona
+    if ((type === 'audio' || type === 'voice') && mediaUrl && savedMessage?.id) {
+      console.log(`🎵 Starting audio transcription for message ${savedMessage.id}`);
+      
+      // Chamar função de transcrição assíncrona
+      EdgeRuntime.waitUntil(
+        supabase.functions.invoke('transcribe-audio', {
+          body: {
+            message_id: savedMessage.id,
+            media_url: mediaUrl
+          }
+        }).then(result => {
+          if (result.error) {
+            console.error('Transcription failed:', result.error);
+          } else {
+            console.log('Transcription completed successfully');
+          }
+        }).catch(error => {
+          console.error('Transcription exception:', error);
+        })
+      );
+    }
 
     // PROCESSAR MENSAGEM IMEDIATAMENTE COM AGENTES DE IA
     await processMessageWithAI(conversation.id, content);

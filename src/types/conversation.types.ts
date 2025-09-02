@@ -27,6 +27,8 @@ export interface Message {
   content: string;
   media_url?: string;
   media_type?: string;
+  transcription?: string;
+  transcription_status?: string;
   is_read: boolean;
   delivered_at?: Date;
   read_at?: Date;

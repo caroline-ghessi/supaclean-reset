@@ -113,16 +113,22 @@ Deno.serve(async (req) => {
       finalAgent = generalAgent;
     }
 
-    // Buscar histórico da conversa
+    // Buscar histórico da conversa incluindo transcrições
     const { data: messages } = await supabase
       .from('messages')
-      .select('content, sender_type, created_at')
+      .select('content, sender_type, created_at, transcription, media_type')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true })
       .limit(20);
 
     const conversationHistory = messages
-      ?.map(msg => `${msg.sender_type === 'customer' ? 'Cliente' : 'Atendente'}: ${msg.content}`)
+      ?.map(msg => {
+        // Usar transcrição para mensagens de áudio, ou conteúdo original
+        const messageContent = (msg.media_type === 'audio/ogg' || msg.media_type === 'audio/mpeg') && msg.transcription
+          ? `${msg.transcription} [áudio transcrito]`
+          : msg.content;
+        return `${msg.sender_type === 'customer' ? 'Cliente' : 'Atendente'}: ${messageContent}`;
+      })
       .join('\n') || '';
 
     // Buscar contextos extraídos
