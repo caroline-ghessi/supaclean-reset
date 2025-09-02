@@ -176,6 +176,11 @@ serve(async (req) => {
 async function processTranscribedMessage(conversationId: string, transcriptionText: string) {
   console.log(`🤖 Processing transcribed message for conversation: ${conversationId}`);
 
+  // Initialize Supabase client for this function
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   // 1. Classificar a intenção da mensagem transcrita
   console.log('Step 1: Classifying transcribed audio intent...');
   const { data: classificationResult, error: classifyError } = await supabase.functions.invoke('classify-intent-llm', {
@@ -274,6 +279,11 @@ async function processTranscribedMessage(conversationId: string, transcriptionTe
 // Função para enviar resposta via WhatsApp (duplicata necessária)
 async function sendWhatsAppResponseFromTranscription(conversationId: string, response: string) {
   try {
+    // Initialize Supabase client for this function
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
     // Buscar dados da conversa
     const { data: conversation } = await supabase
       .from('conversations')
