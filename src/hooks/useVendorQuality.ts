@@ -9,7 +9,23 @@ export function useVendorQuality(vendorId: string, periodDays: string) {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
       
-      // Buscar métricas de qualidade
+      // Buscar análises de qualidade do agente de IA
+      const { data: qualityAnalysis } = await supabase
+        .from('vendor_quality_analysis')
+        .select('*')
+        .eq('vendor_id', vendorId)
+        .gte('analyzed_at', startDate.toISOString())
+        .order('analyzed_at', { ascending: false });
+
+      // Buscar alertas de qualidade
+      const { data: qualityAlerts } = await supabase
+        .from('quality_alerts')
+        .select('*')
+        .eq('vendor_id', vendorId)
+        .gte('created_at', startDate.toISOString())
+        .order('created_at', { ascending: false });
+
+      // Buscar métricas tradicionais como fallback
       const { data: metrics } = await supabase
         .from('quality_metrics')
         .select('*')
@@ -19,68 +35,94 @@ export function useVendorQuality(vendorId: string, periodDays: string) {
       // Buscar conversas recentes
       const { data: conversations } = await supabase
         .from('vendor_conversations')
-        .select(`
-          *,
-          vendor_messages!inner(*)
-        `)
+        .select('*')
         .eq('vendor_id', vendorId)
         .gte('last_message_at', startDate.toISOString())
         .order('last_message_at', { ascending: false })
         .limit(10);
 
-      // Calcular estatísticas
-      const avgResponseTime = metrics && metrics.length > 0
-        ? Math.round(metrics.reduce((acc, m) => acc + (m.response_time_avg_minutes || 0), 0) / metrics.length)
-        : 0;
+      // Calcular estatísticas baseadas nas análises do agente de IA
+      let avgResponseTime = 0;
+      let qualityScore = 0;
+      let satisfactionRate = 0;
 
-      const qualityScore = metrics && metrics.length > 0
-        ? metrics.reduce((acc, m) => acc + (m.automated_quality_score || 0), 0) / metrics.length
-        : 0;
+      if (qualityAnalysis && qualityAnalysis.length > 0) {
+        // Usar dados do agente de IA
+        qualityScore = qualityAnalysis.reduce((acc, analysis) => {
+          return acc + (Number(analysis.quality_score) || 0);
+        }, 0) / qualityAnalysis.length;
+
+        // Calcular tempo de resposta médio das análises
+        const responseTimeData = qualityAnalysis
+          .map(a => {
+            const data = a.analysis_data as any;
+            return data?.response_time_minutes;
+          })
+          .filter(t => t != null);
+        
+        avgResponseTime = responseTimeData.length > 0
+          ? responseTimeData.reduce((acc, time) => acc + time, 0) / responseTimeData.length
+          : 0;
+
+        // Calcular satisfação baseada nos critérios do agente
+        const satisfactionData = qualityAnalysis
+          .map(a => {
+            const scores = a.criteria_scores as any;
+            return scores?.satisfaction_score || scores?.overall_experience;
+          })
+          .filter(s => s != null);
+        
+        satisfactionRate = satisfactionData.length > 0
+          ? satisfactionData.reduce((acc, score) => acc + score, 0) / satisfactionData.length * 10
+          : qualityScore * 10;
+      } else if (metrics && metrics.length > 0) {
+        // Fallback para métricas tradicionais
+        avgResponseTime = Math.round(metrics.reduce((acc, m) => acc + (m.response_time_avg_minutes || 0), 0) / metrics.length);
+        qualityScore = metrics.reduce((acc, m) => acc + (m.automated_quality_score || 0), 0) / metrics.length;
+        satisfactionRate = qualityScore > 0 ? qualityScore * 10 : 85;
+      }
 
       const totalConversations = conversations?.length || 0;
       const activeConversations = conversations?.filter(c => c.conversation_status === 'active').length || 0;
 
-      // Simular taxa de satisfação (seria calculada por IA)
-      const satisfactionRate = qualityScore > 0 ? qualityScore * 10 : 85;
+      // Usar alertas reais do agente de IA
+      const alerts = qualityAlerts?.map(alert => ({
+        id: alert.id,
+        type: alert.severity,
+        title: alert.title,
+        description: alert.description,
+        created_at: alert.created_at,
+        resolved: alert.resolved,
+        metadata: alert.metadata
+      })) || [];
 
-      // Gerar alertas baseados nas métricas
-      const alerts = [];
-      
-      if (avgResponseTime > 15) {
-        alerts.push({
-          type: 'critical',
-          title: 'Tempo de resposta alto',
-          description: `Tempo médio de ${avgResponseTime} minutos está acima da meta de 15 minutos.`,
-          created_at: new Date().toISOString()
-        });
-      }
-      
-      if (qualityScore < 6 && qualityScore > 0) {
-        alerts.push({
-          type: 'warning',
-          title: 'Score de qualidade baixo',
-          description: 'O score de qualidade está abaixo do esperado. Revisar estratégia de atendimento.',
-          created_at: new Date().toISOString()
-        });
-      }
-
-      // Adicionar métricas de resposta às conversas
+      // Adicionar métricas de análise às conversas
       const conversationsWithMetrics = conversations?.map(conv => {
-        const convMetrics = metrics?.find(m => m.conversation_id === conv.id);
+        const analysis = qualityAnalysis?.find(a => a.conversation_id === conv.id);
+        const traditionalMetrics = metrics?.find(m => m.conversation_id === conv.id);
+        
         return {
           ...conv,
-          response_time: convMetrics?.response_time_avg_minutes || 0
+          response_time: (analysis?.analysis_data as any)?.response_time_minutes || 
+                        traditionalMetrics?.response_time_avg_minutes || 0,
+          quality_score: analysis?.quality_score || traditionalMetrics?.automated_quality_score || 0,
+          analysis_data: analysis?.analysis_data,
+          criteria_scores: analysis?.criteria_scores,
+          recommendations: analysis?.recommendations,
+          issues_identified: analysis?.issues_identified
         };
       }) || [];
 
       return {
-        avgResponseTime,
-        qualityScore,
+        avgResponseTime: Math.round(avgResponseTime),
+        qualityScore: Number(qualityScore.toFixed(1)),
         totalConversations,
         activeConversations,
-        satisfactionRate,
+        satisfactionRate: Number(satisfactionRate.toFixed(1)),
         recentConversations: conversationsWithMetrics,
-        alerts
+        alerts,
+        qualityAnalysis: qualityAnalysis || [],
+        hasAiAnalysis: (qualityAnalysis && qualityAnalysis.length > 0)
       };
     },
     enabled: !!vendorId,
