@@ -237,8 +237,12 @@ async function handleIncomingMessage(message: any, contact: any) {
       });
     }
 
-    // PROCESSAR MENSAGEM IMEDIATAMENTE COM AGENTES DE IA
-    await processMessageWithAI(conversation.id, content);
+    // PROCESSAR MENSAGEM COM AGENTES DE IA (SKIP PARA ÁUDIO ATÉ TRANSCRIÇÃO COMPLETAR)
+    if (type !== 'audio' && type !== 'voice') {
+      await processMessageWithAI(conversation.id, content);
+    } else {
+      console.log(`🎵 Audio message - waiting for transcription before AI processing`);
+    }
 
     // Log para debug
     console.log('Message processed with AI agents:', {

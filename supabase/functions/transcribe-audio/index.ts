@@ -94,6 +94,38 @@ serve(async (req) => {
       throw updateError;
     }
 
+    // TRIGGER AI PROCESSING AFTER TRANSCRIPTION COMPLETES
+    console.log('🤖 Triggering AI processing for transcribed audio...');
+    
+    // Buscar dados da conversa
+    const { data: messageData } = await supabase
+      .from('messages')
+      .select('conversation_id')
+      .eq('id', message_id)
+      .single();
+
+    if (messageData?.conversation_id) {
+      try {
+        // Processar com agentes de IA usando o texto transcrito
+        await processTranscribedMessage(messageData.conversation_id, transcriptionText);
+        console.log('✅ AI processing completed for transcribed audio');
+      } catch (aiError) {
+        console.error('Error processing transcribed message with AI:', aiError);
+        
+        // Log error but don't fail the transcription
+        await supabase.from('system_logs').insert({
+          level: 'error',
+          source: 'transcribe-audio-ai-processing',
+          message: 'Failed to process transcribed message with AI',
+          data: { 
+            error: aiError.message, 
+            message_id,
+            transcription: transcriptionText 
+          }
+        });
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
@@ -139,3 +171,142 @@ serve(async (req) => {
     );
   }
 });
+
+// Função para processar mensagem transcrita com agentes de IA
+async function processTranscribedMessage(conversationId: string, transcriptionText: string) {
+  console.log(`🤖 Processing transcribed message for conversation: ${conversationId}`);
+
+  // 1. Classificar a intenção da mensagem transcrita
+  console.log('Step 1: Classifying transcribed audio intent...');
+  const { data: classificationResult, error: classifyError } = await supabase.functions.invoke('classify-intent-llm', {
+    body: {
+      conversationId,
+      message: transcriptionText
+    }
+  });
+
+  if (classifyError) {
+    console.error('Classification failed:', classifyError);
+  } else {
+    console.log('Classification result:', classificationResult);
+    
+    // Atualizar product_group da conversa se classificação foi bem-sucedida
+    if (classificationResult?.productGroup && classificationResult.productGroup !== 'indefinido') {
+      try {
+        const { data: currentConversation } = await supabase
+          .from('conversations')
+          .select('product_group, current_agent_id')
+          .eq('id', conversationId)
+          .single();
+          
+        // Só atualizar se houve mudança de categoria
+        if (currentConversation && currentConversation.product_group !== classificationResult.productGroup) {
+          console.log(`🔄 Updating conversation category from transcription: ${currentConversation.product_group} → ${classificationResult.productGroup}`);
+          
+          await supabase
+            .from('conversations')
+            .update({
+              product_group: classificationResult.productGroup,
+              classification_updated_at: new Date().toISOString(),
+              confidence_score: classificationResult.confidence || 0
+            })
+            .eq('id', conversationId);
+            
+          console.log(`✅ Conversation category updated from transcription`);
+        }
+      } catch (updateError) {
+        console.error('Error updating conversation category:', updateError);
+      }
+    }
+  }
+
+  // 2. Extrair dados do cliente da mensagem transcrita
+  console.log('Step 2: Extracting customer data from transcription...');
+  const { data: extractionResult, error: extractError } = await supabase.functions.invoke('extract-customer-data', {
+    body: {
+      conversationId,
+      message: transcriptionText
+    }
+  });
+
+  if (extractError) {
+    console.error('Extraction failed:', extractError);
+  } else {
+    console.log('Extraction result:', extractionResult);
+  }
+
+  // 3. Gerar resposta inteligente usando agentes de IA
+  console.log('Step 3: Generating intelligent response for transcription...');
+  const { data: responseResult, error: responseError } = await supabase.functions.invoke('intelligent-agent-response', {
+    body: {
+      conversationId,
+      message: transcriptionText,
+      productCategory: classificationResult?.productGroup || 'indefinido'
+    }
+  });
+
+  if (responseError) {
+    console.error('Response generation failed:', responseError);
+    
+    // Fallback: usar agente geral se falhar
+    const { data: fallbackResult } = await supabase.functions.invoke('intelligent-agent-response', {
+      body: {
+        conversationId,
+        message: transcriptionText,
+        productCategory: 'indefinido'
+      }
+    });
+    
+    console.log('Fallback response for transcription:', fallbackResult);
+    
+    if (fallbackResult?.response) {
+      await sendWhatsAppResponseFromTranscription(conversationId, fallbackResult.response);
+    }
+  } else {
+    console.log('AI Response generated for transcription:', responseResult);
+    
+    if (responseResult?.response) {
+      await sendWhatsAppResponseFromTranscription(conversationId, responseResult.response);
+    }
+  }
+}
+
+// Função para enviar resposta via WhatsApp (duplicata necessária)
+async function sendWhatsAppResponseFromTranscription(conversationId: string, response: string) {
+  try {
+    // Buscar dados da conversa
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('whatsapp_number')
+      .eq('id', conversationId)
+      .single();
+
+    if (!conversation) {
+      throw new Error('Conversation not found');
+    }
+
+    // Enviar mensagem via WhatsApp
+    const { data: sendResult, error: sendError } = await supabase.functions.invoke('send-whatsapp-message', {
+      body: {
+        to: conversation.whatsapp_number,
+        message: response
+      }
+    });
+
+    if (sendError) {
+      console.error('Failed to send WhatsApp message from transcription:', sendError);
+    } else {
+      console.log('WhatsApp message sent successfully from transcription:', sendResult);
+    }
+
+  } catch (error) {
+    console.error('Error sending WhatsApp response from transcription:', error);
+    
+    await supabase.from('system_logs').insert({
+      level: 'error',
+      source: 'transcribe-audio-send-response',
+      message: 'Failed to send WhatsApp response from transcription',
+      data: { error: error.message, conversationId, response: response.substring(0, 100) }
+    });
+  }
+}
