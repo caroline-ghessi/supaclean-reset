@@ -220,23 +220,21 @@ async function handleIncomingMessage(message: any, contact: any) {
     if ((type === 'audio' || type === 'voice') && mediaUrl && savedMessage?.id) {
       console.log(`🎵 Starting audio transcription for message ${savedMessage.id}`);
       
-      // Chamar função de transcrição assíncrona
-      EdgeRuntime.waitUntil(
-        supabase.functions.invoke('transcribe-audio', {
-          body: {
-            message_id: savedMessage.id,
-            media_url: mediaUrl
-          }
-        }).then(result => {
-          if (result.error) {
-            console.error('Transcription failed:', result.error);
-          } else {
-            console.log('Transcription completed successfully');
-          }
-        }).catch(error => {
-          console.error('Transcription exception:', error);
-        })
-      );
+      // Chamar função de transcrição assíncrona sem bloquear
+      supabase.functions.invoke('transcribe-audio', {
+        body: {
+          message_id: savedMessage.id,
+          media_url: mediaUrl
+        }
+      }).then(result => {
+        if (result.error) {
+          console.error('Transcription failed:', result.error);
+        } else {
+          console.log('Transcription completed successfully');
+        }
+      }).catch(error => {
+        console.error('Transcription exception:', error);
+      });
     }
 
     // PROCESSAR MENSAGEM IMEDIATAMENTE COM AGENTES DE IA

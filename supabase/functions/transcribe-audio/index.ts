@@ -46,7 +46,7 @@ serve(async (req) => {
 
     // Prepare form data for ElevenLabs API
     const formData = new FormData();
-    formData.append('audio', audioBlob, 'audio.ogg');
+    formData.append('file', audioBlob, 'audio.ogg');
     formData.append('model_id', 'eleven_multilingual_v2');
 
     // Call ElevenLabs Speech-to-Text API
@@ -105,9 +105,9 @@ serve(async (req) => {
     console.error('Transcription error:', error);
 
     // Try to update status to failed if we have message_id
-    const body = await req.clone().json().catch(() => ({}));
-    if (body.message_id) {
-      try {
+    try {
+      const body = await req.json();
+      if (body.message_id) {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -116,9 +116,9 @@ serve(async (req) => {
           .from('messages')
           .update({ transcription_status: 'failed' })
           .eq('id', body.message_id);
-      } catch (updateError) {
-        console.error('Error updating failed status:', updateError);
       }
+    } catch (updateError) {
+      console.error('Error updating failed status:', updateError);
     }
 
     return new Response(
