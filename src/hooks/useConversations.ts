@@ -4,7 +4,7 @@ import { logSystem } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { ConversationFilters } from '@/types/conversation.types';
 
-export function useConversations(filters?: ConversationFilters) {
+export function useConversations(filters?: ConversationFilters & { includeArchived?: boolean }) {
   return useQuery({
     queryKey: ['conversations', filters],
     queryFn: async () => {
@@ -15,6 +15,11 @@ export function useConversations(filters?: ConversationFilters) {
           lead_distributions(id, sent_at, vendor_id, vendors(name))
         `)
         .eq('source', 'whatsapp');
+
+      // Exclude closed conversations by default unless specifically requested
+      if (!filters?.includeArchived) {
+        query = query.neq('status', 'closed');
+      }
 
       // Apply search filter
       if (filters?.search) {

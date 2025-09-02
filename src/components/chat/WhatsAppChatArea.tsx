@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Search, MoreVertical, Paperclip, Smile, Send, Mic, ArrowDown, UserCheck, Bot, FileText } from 'lucide-react';
+import { Search, MoreVertical, Paperclip, Smile, Send, Mic, ArrowDown, UserCheck, Bot, FileText, Archive } from 'lucide-react';
 import { useConversation } from '@/hooks/useConversations';
 import { useMessages } from '@/hooks/useMessages';
 import { useCreateMessage } from '@/hooks/useMessages';
 import { useRealtimeMessages } from '@/hooks/useRealtimeSubscription';
-import { useAssumeConversation, useReturnConversationToBot } from '@/hooks/useConversationActions';
+import { useAssumeConversation, useReturnConversationToBot, useCloseConversation } from '@/hooks/useConversationActions';
 import { useGenerateLeadSummary, useSendLeadToVendor, useVendors } from '@/hooks/useLeadSummary';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WhatsAppMessageBubble } from './WhatsAppMessageBubble';
 import { LeadSummaryModal } from './LeadSummaryModal';
+import { CloseConversationDialog } from './CloseConversationDialog';
 
 interface WhatsAppChatAreaProps {
   conversationId: string;
@@ -25,6 +26,7 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [summaryData, setSummaryData] = useState(null);
+  const [showCloseDialog, setShowCloseDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,6 +40,7 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
   const createMessage = useCreateMessage();
   const assumeConversation = useAssumeConversation();
   const returnToBot = useReturnConversationToBot();
+  const closeConversation = useCloseConversation();
 
   // Lead summary hooks
   const generateSummary = useGenerateLeadSummary();
@@ -114,6 +117,19 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
       setShowSummaryModal(false);
     } catch (error) {
       console.error('Erro ao enviar lead:', error);
+    }
+  };
+
+  // Handle close conversation
+  const handleCloseConversation = async (reason: string) => {
+    try {
+      await closeConversation.mutateAsync({
+        conversationId,
+        reason
+      });
+      setShowCloseDialog(false);
+    } catch (error) {
+      console.error('Erro ao finalizar conversa:', error);
     }
   };
 
@@ -254,6 +270,20 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
               Devolver
             </Button>
           )}
+
+          {/* Close Conversation Button - Only show for active conversations */}
+          {(conversation.status === 'in_bot' || conversation.status === 'with_agent') && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowCloseDialog(true)}
+              disabled={closeConversation.isPending}
+              className="text-xs px-2 text-orange-600 hover:text-orange-700 border-orange-200 hover:border-orange-300"
+            >
+              <Archive size={14} className="mr-1" />
+              Finalizar
+            </Button>
+          )}
           
           <Button variant="ghost" size="sm">
             <Search size={18} />
@@ -365,6 +395,14 @@ export function WhatsAppChatArea({ conversationId }: WhatsAppChatAreaProps) {
         vendors={vendors || []}
         onSendToVendor={handleSendToVendor}
         sending={sendToVendor.isPending}
+      />
+
+      {/* Close Conversation Dialog */}
+      <CloseConversationDialog
+        open={showCloseDialog}
+        onOpenChange={setShowCloseDialog}
+        onConfirm={handleCloseConversation}
+        isLoading={closeConversation.isPending}
       />
     </div>
   );

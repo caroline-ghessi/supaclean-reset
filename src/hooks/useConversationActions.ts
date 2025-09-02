@@ -116,3 +116,65 @@ export function useReturnConversationToBot() {
     },
   });
 }
+
+export function useCloseConversation() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ conversationId, reason }: { conversationId: string; reason: string }) => {
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const { data, error } = await supabase
+        .from('conversations')
+        .update({
+          status: 'closed',
+          updated_at: new Date().toISOString(),
+          metadata: {
+            closed_at: new Date().toISOString(),
+            closed_by: user.id,
+            close_reason: reason,
+            reactivation_count: 0
+          }
+        })
+        .eq('id', conversationId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new Error('Não foi possível finalizar esta conversa');
+
+      // Log da ação
+      await supabase.from('system_logs').insert({
+        level: 'info',
+        source: 'conversation_actions',
+        message: `Conversa finalizada`,
+        data: {
+          conversation_id: conversationId,
+          agent_id: user.id,
+          previous_status: data.status,
+          new_status: 'closed',
+          reason
+        }
+      });
+
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] });
+      queryClient.invalidateQueries({ queryKey: ['conversation', data.id] });
+      toast({
+        title: 'Conversa finalizada',
+        description: 'A conversa foi arquivada com sucesso.',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Erro ao finalizar conversa',
+        description: error.message || 'Não foi possível finalizar a conversa.',
+        variant: 'destructive',
+      });
+    },
+  });
+}

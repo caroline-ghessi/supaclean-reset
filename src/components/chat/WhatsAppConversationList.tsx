@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
-import { Search, Filter, Plus } from 'lucide-react';
+import { Search, Filter, Plus, Archive, ArchiveRestore } from 'lucide-react';
 import { useConversations } from '@/hooks/useConversations';
 import { useRealtimeConversations } from '@/hooks/useRealtimeSubscription';
 import { WhatsAppConversationItem } from './WhatsAppConversationItem';
@@ -20,6 +20,7 @@ export function WhatsAppConversationList({ onSelect, selectedId }: WhatsAppConve
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<ConversationFilters>({});
+  const [showArchived, setShowArchived] = useState(false);
 
   // Debounce search term to avoid excessive API calls
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -27,8 +28,9 @@ export function WhatsAppConversationList({ onSelect, selectedId }: WhatsAppConve
   // Combine search with filters
   const combinedFilters = useMemo(() => ({
     ...filters,
-    ...(debouncedSearchTerm && { search: debouncedSearchTerm })
-  }), [filters, debouncedSearchTerm]);
+    ...(debouncedSearchTerm && { search: debouncedSearchTerm }),
+    includeArchived: showArchived
+  }), [filters, debouncedSearchTerm, showArchived]);
 
   const { data: conversations, isLoading } = useConversations(combinedFilters);
   useRealtimeConversations();
@@ -52,8 +54,19 @@ export function WhatsAppConversationList({ onSelect, selectedId }: WhatsAppConve
       {/* Header */}
       <div className="bg-chat-header px-4 py-3 border-b border-border">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold text-foreground">Conversas</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            Conversas {showArchived && '(Arquivadas)'}
+          </h2>
           <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowArchived(!showArchived)}
+              className={`${showArchived ? 'bg-primary/10 text-primary' : ''} text-xs`}
+              title={showArchived ? 'Mostrar conversas ativas' : 'Mostrar conversas arquivadas'}
+            >
+              {showArchived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+            </Button>
             <Button
               variant="ghost"
               size="sm"
